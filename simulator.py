@@ -31,8 +31,10 @@ class Robot:
 
         self.objects.append(self.canvas.create_circle(self.x, self.y, 10))
 
+        points = [self.x + 10*np.sin(self.a), self.y + 10*np.cos(self.a),
+                  self.x +  5*np.cos(self.a), self.y -  5*np.sin(self.a),
+                  self.x -  5*np.cos(self.a), self.y +  5*np.sin(self.a)]
 
-        points = []
         self.objects.append(self.canvas.create_polygon(points, fill='red'))
 
     def get_scan(self, obstacles):
@@ -43,22 +45,35 @@ class Simualtor:
 
     def __init__(self):
         self.master = tk.Tk()
-        self.PIX_per_M = 50
 
+        self.PIX_per_M = 50
         self.canvas = tk.Canvas(self.master, width=200, height=100)
         self.canvas.pack()
 
-        self.canvas.create_line(150, 80, 200, 100, fill="#476042", width=3)
-
         self.robot = Robot(50,50, self.canvas)
 
-        self.master.bind('<Left>',  lambda e: self.robot.move(0,-0.1) )
+        self.master.bind('<Left>',  lambda e: self.robot.move(0, 0.1) )
         self.master.bind('<Right>', lambda e: self.robot.move(0,-0.1) )
-        self.master.bind('<Up>',    lambda e: self.robot.move(1,-0) )
+        self.master.bind('<Up>',    lambda e: self.robot.move( 1,-0) )
         self.master.bind('<Down>',  lambda e: self.robot.move(-1,-0) )
+
+        self.master.bind('<Down>',  lambda e: self.robot.move(-1,-0) )
+        self.master.bind('<Down>',  lambda e: self.robot.move(-1,-0) )
+
+        self.obstacles = [ (0,10, 100, 110) ]
+
+        self.mouse_mode = None
 
         tk.mainloop()
 
+    def left_MB(self, event):
+        pass
+
+    def right_MD(self, event):
+        pass
+
+    def redraw_obstacles(self):
+        pass
 
     def add_line(self):
         pass
