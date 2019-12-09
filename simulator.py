@@ -57,25 +57,41 @@ class Simualtor:
         self.master.bind('<Up>',    lambda e: self.robot.move( 1,-0) )
         self.master.bind('<Down>',  lambda e: self.robot.move(-1,-0) )
 
-        self.master.bind('<Down>',  lambda e: self.robot.move(-1,-0) )
-        self.master.bind('<Down>',  lambda e: self.robot.move(-1,-0) )
+        self.canvas.bind('<Button-1>',        self.mouse_draw_down)
+        self.canvas.bind('<B1-Motion>',       self.mouse_draw_move)
+        self.canvas.bind('<ButtonRelease-1>', self.mouse_draw_up)
+        self.canvas.bind('<Button-2>',        self.mouse_delete)
 
-        self.obstacles = [ (0,10, 100, 110) ]
-
+        self.obstacles = []
         self.mouse_mode = None
 
         tk.mainloop()
 
-    def left_MB(self, event):
-        pass
+    def mouse_draw_down(self, event):
+        self.mouse_mode = self.canvas.create_line(event.x, event.y, event.x, event.y)
 
-    def right_MD(self, event):
-        pass
+    def mouse_draw_move(self, event):
+        if self.mouse_mode != None:
+            coords = self.canvas.coords(self.mouse_mode)
+            self.canvas.coords(self.mouse_mode, coords[0], coords[1], event.x, event.y)
+
+    def mouse_draw_up(self, event):
+        if self.mouse_mode != None:
+            coords = self.canvas.coords(self.mouse_mode)
+            self.canvas.coords(self.mouse_mode, coords[0], coords[1], event.x, event.y)
+            self.obstacles.append(self.mouse_mode)
+        self.mouse_mode = None
+
+    def mouse_delete(self, event):
+        obj, = self.canvas.find_closest(event.x, event.y)
+        if obj in self.obstacles:
+            self.canvas.delete(obj)
+
+    def scan(self):
+        for obj in self.obstacles:
+            coords = self.canvas.coords(obj)
 
     def redraw_obstacles(self):
-        pass
-
-    def add_line(self):
         pass
 
 
