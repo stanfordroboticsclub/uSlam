@@ -38,7 +38,8 @@ class Robot:
         self.objects.append(self.canvas.create_polygon(points, fill='red'))
 
     def get_scan(self, obstacles):
-        pass
+        for angle in np.linspace(0, 2*np.pi, 50):
+            pass
 
 
 class Simualtor:
@@ -88,11 +89,8 @@ class Simualtor:
             self.canvas.delete(obj)
 
     def scan(self):
-        for obj in self.obstacles:
-            coords = self.canvas.coords(obj)
-
-    def redraw_obstacles(self):
-        pass
+        coords = [self.canvas.coords(obj) for obj in self.obstacles]
+        self.robot.get_scan(coords)
 
 
 if __name__ == "__main__":
