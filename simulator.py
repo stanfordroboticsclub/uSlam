@@ -96,18 +96,17 @@ class Simualtor:
         for s in self.scans:
             self.canvas.delete(s)
 
-        for angle in np.linspace(0, 2*np.pi, 10):
+        start = 20
+        end = 300
+
+        step = 50
+
+        for angle in np.linspace(0, 2*np.pi, step):
             s = np.sin(angle)
             c = np.cos(angle)
 
-            x = self.robot.x
-            y = self.robot.y
-
-            start = 20
-            end = 300
-
-            x += s * start
-            y += c * start
+            x = self.robot.x + s*start
+            y = self.robot.y + c*start
 
             for dist in range(start,end):
                 x += s
