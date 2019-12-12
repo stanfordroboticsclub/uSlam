@@ -37,9 +37,7 @@ class Robot:
 
         self.objects.append(self.canvas.create_polygon(points, fill='red'))
 
-    def get_scan(self, obstacles):
-        for angle in np.linspace(0, 2*np.pi, 50):
-            pass
+            
 
 
 class Simualtor:
@@ -48,10 +46,10 @@ class Simualtor:
         self.master = tk.Tk()
 
         self.PIX_per_M = 50
-        self.canvas = tk.Canvas(self.master, width=200, height=100)
+        self.canvas = tk.Canvas(self.master, width=400, height=400)
         self.canvas.pack()
 
-        self.robot = Robot(50,50, self.canvas)
+        self.robot = Robot(200, 200, self.canvas)
 
         self.master.bind('<Left>',  lambda e: self.robot.move(0, 0.1) )
         self.master.bind('<Right>', lambda e: self.robot.move(0,-0.1) )
@@ -66,6 +64,9 @@ class Simualtor:
         self.obstacles = []
         self.mouse_mode = None
 
+        self.scans = []
+
+        self.master.after(1000, self.scan)
         tk.mainloop()
 
     def mouse_draw_down(self, event):
@@ -90,7 +91,35 @@ class Simualtor:
 
     def scan(self):
         coords = [self.canvas.coords(obj) for obj in self.obstacles]
-        self.robot.get_scan(coords)
+        output = []
+
+        for s in self.scans:
+            self.canvas.delete(s)
+
+        for angle in np.linspace(0, 2*np.pi, 10):
+            s = np.sin(angle)
+            c = np.cos(angle)
+
+            x = self.robot.x
+            y = self.robot.y
+
+            start = 20
+            end = 300
+
+            x += s * start
+            y += c * start
+
+            for dist in range(start,end):
+                x += s
+                y += c
+                items = self.canvas.find_overlapping(x,y, x+2, y+2)
+                if len(items) != 0:
+                    output.append( (angle + self.robot.a, dist) )
+                    self.scans.append(self.canvas.create_line(x, y, x+1, y, fill='red'))
+                    break
+
+        print(output)
+        self.master.after(1000, self.scan)
 
 
 if __name__ == "__main__":
