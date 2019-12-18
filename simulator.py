@@ -3,6 +3,7 @@
 
 import tkinter as tk
 import numpy as np
+from UDPComms import Publisher, Subscriber
 
 def _create_circle(self, x, y, r, **kwargs):
     return self.create_oval(x-r, y-r, x+r, y+r, **kwargs)
@@ -64,7 +65,8 @@ class Simualtor:
         self.obstacles = []
         self.mouse_mode = None
 
-        self.scans = []
+        self.scan_points = []
+        self.lidar = Publisher(8110)
 
         self.master.after(1000, self.scan)
         tk.mainloop()
@@ -93,7 +95,7 @@ class Simualtor:
         coords = [self.canvas.coords(obj) for obj in self.obstacles]
         output = []
 
-        for s in self.scans:
+        for s in self.scan_points:
             self.canvas.delete(s)
 
         start = 20
@@ -105,20 +107,21 @@ class Simualtor:
             s = np.sin(angle)
             c = np.cos(angle)
 
-            x = self.robot.x + s*start
+            x = self.robot.x - s*start
             y = self.robot.y + c*start
 
             for dist in range(start,end):
-                x += s
+                x -= s
                 y += c
                 items = self.canvas.find_overlapping(x,y, x+2, y+2)
                 if len(items) != 0:
-                    output.append( (angle + self.robot.a, dist) )
-                    self.scans.append(self.canvas.create_line(x, y, x+1, y, fill='red'))
+                    output.append( (None, np.degrees(angle + self.robot.a), 1000*dist/self.PIX_per_M) )
+                    self.scan_points.append(self.canvas.create_line(x, y, x+1, y, fill='red'))
                     break
 
         print(output)
-        self.master.after(1000, self.scan)
+        self.lidar.send(output)
+        self.master.after(500, self.scan)
 
 
 if __name__ == "__main__":
