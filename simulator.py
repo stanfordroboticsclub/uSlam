@@ -4,6 +4,8 @@
 import tkinter as tk
 import numpy as np
 from UDPComms import Publisher, Subscriber
+from time import monotonic as time
+
 
 def _create_circle(self, x, y, r, **kwargs):
     return self.create_oval(x-r, y-r, x+r, y+r, **kwargs)
@@ -17,8 +19,24 @@ class Robot:
         self.y = y
         self.a = 0
 
+        self.prev_pos = [self.x,self.y,self.a]
+        self.prev_time = time()
+
         self.objects = []
         self.redraw()
+
+    def get_odom(self):
+        dx = self.x - self.prev_pos[0]
+        dy = self.y - self.prev_pos[1]
+        da = self.a - self.prev_pos[2]
+
+        dr = (dx**2 + dy**2)**0.5
+        dt = time() - self.prev_pos
+
+        self.prev_pos = [self.x,self.y,self.a]
+        self.prev_time = time()
+
+        return (dr/dt , da/dt)
 
     def move(self, f, theta):
         self.x += f * np.sin(self.a)
@@ -67,8 +85,10 @@ class Simualtor:
 
         self.scan_points = []
         self.lidar = Publisher(8110)
+        self.odom = Publisher(8821) # publishes twist not wheel rotations
 
         self.master.after(1000, self.scan)
+        self.master.after(100, self.odom_pub)
         tk.mainloop()
 
     def mouse_draw_down(self, event):
@@ -90,6 +110,11 @@ class Simualtor:
         obj, = self.canvas.find_closest(event.x, event.y)
         if obj in self.obstacles:
             self.canvas.delete(obj)
+
+    def odom_pub(self):
+        out = self.robot.get_odom()
+        self.odom.send( (out[0]/self.PIX_per_M, out[1]) )
+        self.master.after(100, self.odom_pub)
 
     def scan(self):
         coords = [self.canvas.coords(obj) for obj in self.obstacles]
