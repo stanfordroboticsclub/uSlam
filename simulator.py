@@ -31,7 +31,7 @@ class Robot:
         da = self.a - self.prev_pos[2]
 
         dr = (dx**2 + dy**2)**0.5
-        dt = time() - self.prev_pos
+        dt = time() - self.prev_time
 
         self.prev_pos = [self.x,self.y,self.a]
         self.prev_time = time()
