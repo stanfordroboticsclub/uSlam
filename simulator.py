@@ -15,6 +15,7 @@ class Robot:
     def __init__(self, x, y, canvas):
         self.canvas = canvas
 
+        # Pixels and radians
         self.x = x
         self.y = y
         self.a = 0
@@ -113,7 +114,7 @@ class Simualtor:
 
     def odom_pub(self):
         out = self.robot.get_odom()
-        self.odom.send( (out[0]/self.PIX_per_M, out[1]) )
+        self.odom.send( (out[0]/self.PIX_per_M, -out[1]) )
         self.master.after(100, self.odom_pub)
 
     def scan(self):

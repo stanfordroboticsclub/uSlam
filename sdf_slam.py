@@ -214,8 +214,10 @@ class Robot:
         linear, rot = self.odom.get()
 
         v_right   = 0
-        v_forward = linear
-        v_th      = rot
+        v_forward = linear * RATE
+        v_th      = rot * RATE/1000
+
+        print(v_forward, v_th)
 
         delta_x = (v_forward * math.cos(self.th + v_th/2) ) # - v_right * math.sin(th)) # needed fro omni robots
         delta_y = (v_forward * math.sin(self.th + v_th/2) ) # + v_right * math.cos(th))
@@ -228,7 +230,7 @@ class Robot:
 
 class SLAM:
     def __init__(self, window):
-        self.lidar = UDPComms.Subscriber(8110, 1)
+        self.lidar = UDPComms.Subscriber(8110, 0.2)
         self.robot = Robot()
         self.sdf = SDFMap()
 
@@ -237,16 +239,22 @@ class SLAM:
         self.mapped = 0
 
     def update(self):
-        scan = self.lidar.get()
 
-        # self.robot.update_odom()
+        print("HERE")
+        self.robot.update_odom()
+
+
+        # orig = self.robot.get_pose()
+
+        try:
+            scan = self.lidar.get()
+        except UDPComms.timeout:
+            return
 
         if self.mapped < 5:
             self.update_sdf(scan)
             self.mapped += 1
             return
-
-        # orig = self.robot.get_pose()
 
         for _ in range(10):
             delta_pose = self.scan_match(scan)
@@ -257,7 +265,7 @@ class SLAM:
             self.robot.set_pose(pose[0] + delta_pose[0],
                                pose[1] + delta_pose[1],
                                pose[2] + delta_pose[2])
-        # self.update_sdf(scan)
+        self.update_sdf(scan)
 
         # self.robot.set_pose(*orig)
 
