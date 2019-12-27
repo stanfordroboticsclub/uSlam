@@ -22,7 +22,6 @@ class Pose():
     def a(self): return self.pose[2]
     @a.setter
     def a(self, value): self.pose[2] = value 
-
     @property
     def loc(self):
         return (self.x, self.y)
@@ -52,34 +51,74 @@ class Particle:
         self.children = []
 
         self.onodes = {}
-        self.pose = parent.pose.copy()
 
-    def prune(self):
-        pass
+        if parent is None:
+            self.pose = Pose()
+            self.probability = 1
+        else:
+            self.pose = parent.pose.copy()
+            self.probability = parent.probability
 
+
+    def prune(self, child):
+        # TODO: move to sets?
+        idx = self.children.index(child)
+        del self.children[idx]
+
+        if len(self.children) == 0:
+            self.die()
+
+        elif len(self.children) == 1:
+            kid = self.children[0]
+            self.pose = kid.pose
+            self.children = kid.children
+            # TODO operation unsopprted: manual code needed
+            self.onodes = self.onodes + kid.onodes
+
+    def die(self):
+        for key,value in self.onodes.items():
+            pass
+        if self.parent == None:
+            print("killing top level ancestor")
+
+        self.parent.prune(child)
+
+    def spawn_child(self):
+        child = Particle(self)
+        self.children.append(child)
+        return child
 
     def update_odometry(self, delta_pose):
         self.pose.move(delta_pose)
-        self.pose.move([0,0,0])
+        # TODO: should we update the particle prob based on this?
+        child.pose.move( np.array([10,5,0.3]) * np.random.randn(3) )
 
     def update_lidar(self, scan):
-        pass
+
+        for dist, angle in scan:
+            loc = self.pose.lidar(dist,angle)
+            np.log(self.grid(loc))
+
 
     def posterior(self, scan):
         pass
 
-    def spawn_child(self):
-        child = Particle(self)
-        child.pose.move([0,0,0])
-        self.children.append(child)
+        # p(m|L) = P(L|m)p(m) / p(l)
 
-    def die(self):
-        if len(self.children) == 1:
-            pass
-            # self = self.children[0]
+        for dist, angle in scan:
+            loc = self.pose.lidar(dist,angle)
+            np.log(self.grid(loc))
+
+        if self.probability < 0.01:
+            return False
+
+
+
 
         
     def grid(self, loc):
+        loc = grid.round(loc)
+
         particle = self
         while loc not in particle.onodes.keys():
             particle = particle.parent
@@ -115,6 +154,13 @@ class Grid:
         x, y = key
         self.grid[x//self.MM_per_GRID][y//self.MM_per_GRID].append(value)
 
+    def round(self,key):
+        x, y = key
+        return (x//self.MM_per_GRID, y//MM_per_GRID)
+
+    def visited_squares(self, robot, point):
+        pass
+
 
 
 
@@ -126,29 +172,32 @@ class SLAM:
         self.lidar = Subscriber()
 
         self.particle_tree = Particle()
-        self.particle_list = [self.particle_tree]
+        self.active_particles = [self.particle_tree]
 
-    def populate_particles(self):
-        while len(self.particle_list) < self.PARTICLE_NUM:
-            random.choice(self.particle_list).spawn_child()
+        self.grid = Grid()
+
+    def sample_particles(self):
+        self.active_particles = []
+        for _ in range(self.PARTICLE_NUM):
+            new = random.choice(self.active_particles).spawn_child()
+            self.active_particles.append(new)
 
     def update_odometry(self, odometry_msg):
-        
         delta_pose = np.array(odometry_msg)
-        for particle in self.particle_list:
+        for particle in self.active_particles:
             particle.update_odometry(delta_pose)
 
+    def update_lidar(self, scan):
+        pass
+        for particle in self.active_particles:
+            particle.posterior(scan)
+
     def update(self):
-        self.update_odometry()
-        
-        self.calculate_posteriors()
+        self.update_odometry(odom)
 
-        self.update_maps()
+        self.update_lidar(scan)
 
-        self.populate_particles()
-
-
-
+        self.sample_particles()
 
 
 
@@ -156,3 +205,7 @@ class SLAM:
 class Display:
     pass
 
+
+
+if __name__ == "__main__":
+    pass
