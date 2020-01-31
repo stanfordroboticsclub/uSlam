@@ -4,18 +4,24 @@ import numpy as np
 from UDPComms import Subscriber, Publisher
 import copy
 
+from typing import List
+
+Bearing = List[float]
+Position = type(np.array([0,0]))
+
 
 class Gaussian:
     def __init__(self, mean, covariance):
         self.mean = mean
         self.covariance = covariance
         self.normalize()
+        self.existing = 1
 
     def normalize(self):
         self.inverse_covariance = np.linalg.inv(covariance)
         self.normalization = 1/ np.sqrt( (2*np.pi)**self.mean.shape[0] * np.linalg.det(covariance))
 
-    def probability(self, location):
+    def probability(self, location: Position) -> float:
         offset = location-self.mean 
         return self.normalization * np.exp( -0.5 * offset.T @ self.inverse_covariance @ offset)
 
@@ -27,6 +33,7 @@ class Gaussian:
         return copy.deepcopy(self)
 
 class Kalman(Gaussian):
+
     def update(self, observation: Gaussian) -> None:
         kalman = self.covariance @ np.linalg( self.covariance + observation.covariance)
         self.mean = self.mean + kalman @ (observation.mean + self.mean)
@@ -34,7 +41,7 @@ class Kalman(Gaussian):
         self.normalize()
 
 
-class Landmarks(List):
+class Landmarks(list):
     pass
     #TODO: update to reference past particles
 
@@ -54,9 +61,10 @@ class Particle:
         self.position[:2] += (R @ delta_xy)
         self.position[-1] += delta_r
 
-    def sensor_update(landmarks -> List[Gaussian]) -> None:
+    def sensor_update(landmarks -> List[Bearing]) -> None:
 
         # TODO
+        # get landmark sensor distribution
         # associate landmarks/create landmarks/delete landmarks
         # calculate probability of this observation
         # update particle weight with baies
@@ -66,6 +74,25 @@ class Particle:
 
     def map_update(landmarks -> List[Gaussian]) -> None:
         pass
+
+    def compute_landmarks(landmarks: List[Bearing]) -> List[Gaussian]:
+        # normally done with Jacobian. Here we eyeball it
+
+        radial_std = 1
+        tangential_std = 1
+
+        out = []
+        for distance,angle in landmarks:
+            alpha = self.position[-1] + angle
+            c = np.cos(alpha)
+            s = np.sin(alpha)
+            location = self.position[:2] + dist * np.array([c, s])
+            T =  np.array([ [c,-s],[s,c] ]) @ np.diag([radial_std, tangential_std])
+            covar = T @ T.T
+            out.append(Gaussian(location, covar))
+
+        return out
+
 
 
 class SLAM:
@@ -89,6 +116,9 @@ class SLAM:
 
         for particle in self.particles:
             particle.move(delta_xy, delta_r)
+            angle_var = np.degrees(5) * np.random.randn()
+            xy_var = [0.01 * np.random.randn(), 0]
+            particle.move(xy_var, angle_var)
             # particle.move()
 
 
@@ -102,5 +132,5 @@ class SLAM:
         #resample particles
 
     @staticmethod
-    def find_landmarks(scan) -> List[Gaussian]:
+    def find_landmarks(scan) -> List[Bearing]:
         pass
