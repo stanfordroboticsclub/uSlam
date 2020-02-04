@@ -133,4 +133,19 @@ class SLAM:
 
     @staticmethod
     def find_landmarks(scan) -> List[Bearing]:
-        pass
+
+        xs = []
+        ys = []
+
+        img = np.zeros((500,500))
+
+        for _, angle, dist in scan:
+            a = math.radians(angle)
+            x = math.sin(a) * dist
+            y = math.cos(a) * dist
+            img[x,y] = 1
+
+        img
+
+
+
