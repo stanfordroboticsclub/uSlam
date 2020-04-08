@@ -510,7 +510,10 @@ class PointCloud:
         return cls( array )
 
     def tranform(self, matrix):
-        self.points = matrix @ self.points
+        print("matrix", matrix.shape)
+        print("self", self.points.shape)
+
+        self.points =  self.points @ matrix
 
     def move(self, vector):
         self.points += vector
@@ -530,6 +533,13 @@ class PointCloud:
         # keep around
         nbrs = NearestNeighbors(n_neighbors=1).fit(self.points)
         distances, indices = nbrs.kneighbors(other.points)
+
+        distances = np.squeeze(distances)
+        indices = np.squeeze(indices)
+
+        print("distances:", distances.shape)
+        print("indices:", indices.shape)
+        print("other:", other.points.shape)
 
         matched_indes = indices[distances <= MAX_DIST]
         matched_other = other.points[distances <= MAX_DIST, :]
@@ -568,7 +578,7 @@ class Vizualizer:
             self.create_point(self.SIZE/2 + x/self.MM_PER_PIX, self.SIZE/2 + y/self.MM_PER_PIX, c=c)
 
     def create_point(self,x,y, c = '#000000', w= 1):
-        self.canvas.create_oval(x, y, x, y, width = w, fill = c)
+        self.canvas.create_oval(x, y, x, y, width = w, fill = c, outline = c)
 
 
 if __name__ == "__main__":
@@ -581,8 +591,10 @@ if __name__ == "__main__":
     v.plot_PointCloud(s2, c="blue")
 
     s3 = s1.fitICP(s2)
-
     v.plot_PointCloud(s3, c="green")
+
+    s4 = s1.fitICP(s3)
+    v.plot_PointCloud(s4, c="red")
 
 
     v.root.mainloop()
