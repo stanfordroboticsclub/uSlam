@@ -492,7 +492,55 @@ scan2 = [[22, 352.890625, 410.5],
 [23, 349.984375, 407.0]]
 
 
+class Transform:
+    def __init__(self, matrix):
+        self.matrix = matrix
 
+    @classmethod
+    def fromOdometry(cls, angle, xy):
+        matrix = np.eye(3)
+        matrix[0,0] = np.cos(angle); matrix[0,1] =-np.sin(angle)
+        matrix[1,0] = np.sin(angle); matrix[1,1] = np.cos(angle)
+        matrix[:2,2] = xy
+
+        return cls(matrix)
+
+    @classmethod
+    def fromComponents(cls, angle, xy = None):
+        if xy == None:
+            xy = np.zeros((2))
+        else:
+            xy = np.array(xy)
+        return cls.fromOdometry(np.radians(angle), xy)
+
+    def combine(self, other):
+        return Transform(self.matrix @ other.matrix)
+
+    def inv(self):
+        R = self.matrix[:2, :2]
+        matrix = np.eye(3)
+        matrix[:2,:2] = np.linalg.inv(R)
+        matrix[:2,2]  = np.linalg.inv(R) @ self.matrix[:2, 2]
+        return Transform(matrix)
+
+class Robot:
+    def __init__(self, xy = (0,0), angle = 0):
+        self.tranform = Transform.fromComponents(angle, xy)
+
+    def move(self, tranform):
+        self.tranform = self.tranform.combine(tranform)
+        # self.tranform = tranform.combine(self.tranform)
+
+    def get_transform(self):
+        return self.tranform
+
+    def get_pose(self):
+        pos = np.array([0,0,1])
+        head = np.array([0,1,1])
+
+        pos  = self.tranform.matrix @ pos
+        head = self.tranform.matrix @ head - pos
+        return (pos[:2], head[:2])
 
 class PointCloud:
     def __init__(self, array):
@@ -506,24 +554,19 @@ class PointCloud:
         scan = np.array(scan)
         angles = np.radians(scan[:,1])
         dists = scan[:,2]
-        array = np.stack([dists*np.sin(angles), -dists*np.cos(angles)], axis=-1)
+        array = np.stack([dists*np.sin(angles), -dists*np.cos(angles), np.ones(angles.shape)], axis=-1)
         return cls( array )
 
-    def tranform(self, matrix):
+    def move(self, tranform):
         print("matrix", matrix.shape)
         print("self", self.points.shape)
-
-        self.points =  self.points @ matrix
-
-    def move(self, vector):
-        self.points += vector
+        self.points =  self.points @ tranform.matrix
 
     def fitICP(self, other):
-        # for _ in range(1):
-        other = other.copy()
-        R, t = self.AlignSVD(other)
-        other.move(t)
-        other.tranform(R)
+        for _ in range(5):
+            R, t = self.AlignSVD(other)
+            other.move(t)
+            other.tranform(R)
         return other
 
     def AlignSVD(self, other):
@@ -559,8 +602,6 @@ class PointCloud:
 
         return R, t
 
-    
-
 
 class Vizualizer:
     def __init__(self, size = 1000, mm_per_pix = 2):
@@ -571,30 +612,57 @@ class Vizualizer:
         self.canvas = tk.Canvas(self.root,width=self.SIZE,height=self.SIZE)
         self.canvas.pack()
 
-        self.canvas.create_oval(self.SIZE/2+5, self.SIZE/2+5, self.SIZE/2-5, self.SIZE/2-5, fill = '#FF0000')
+        self.robot = None
         
     def plot_PointCloud(self, pc, c='#000000'):
-        for x, y in pc.points:
+        for x, y,_ in pc.points:
             self.create_point(self.SIZE/2 + x/self.MM_PER_PIX, self.SIZE/2 + y/self.MM_PER_PIX, c=c)
 
+    def plot_Robot(self, robot):
+        pos, head = robot.get_pose()
+        print("pos", pos)
+        print("head", head)
+
+        head *= 20
+        self.canvas.create_line(self.SIZE/2 + pos[0]/self.MM_PER_PIX,
+                           self.SIZE/2 - pos[1]/self.MM_PER_PIX,
+                           self.SIZE/2 + pos[0]/self.MM_PER_PIX + head[0],
+                           self.SIZE/2 - pos[1]/self.MM_PER_PIX - head[1],
+                           arrow=tk.LAST)
+
+        self.canvas.create_oval(self.SIZE/2+5 + pos[0]/self.MM_PER_PIX, 
+                                self.SIZE/2+5 - pos[1]/self.MM_PER_PIX,
+                                self.SIZE/2-5 + pos[0]/self.MM_PER_PIX,
+                                self.SIZE/2-5 - pos[1]/self.MM_PER_PIX,
+                                fill = '#FF0000')
+
     def create_point(self,x,y, c = '#000000', w= 1):
-        self.canvas.create_oval(x, y, x, y, width = w, fill = c, outline = c)
+        self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,
+                                self.SIZE/2 - y/self.MM_PER_PIX,
+                                self.SIZE/2 + x/self.MM_PER_PIX,
+                                self.SIZE/2 - y/self.MM_PER_PIX, width = w, fill = c, outline = c)
 
 
 if __name__ == "__main__":
     v = Vizualizer()
 
-    s1 = PointCloud.fromScan(scan1)
-    s2 = PointCloud.fromScan(scan2)
+    r = Robot()
 
-    v.plot_PointCloud(s1)
-    v.plot_PointCloud(s2, c="blue")
+    v.plot_Robot(r)
+    r.move(Transform.fromComponents(90, (0,50)))
+    v.plot_Robot(r)
 
-    s3 = s1.fitICP(s2)
-    v.plot_PointCloud(s3, c="green")
+    r.move(Transform.fromComponents(90, (0,100)))
+    v.plot_Robot(r)
 
-    s4 = s1.fitICP(s3)
-    v.plot_PointCloud(s4, c="red")
+#     s1 = PointCloud.fromScan(scan1)
+#     s2 = PointCloud.fromScan(scan2)
+
+#     v.plot_PointCloud(s1)
+#     v.plot_PointCloud(s2, c="blue")
+
+#     s1.fitICP(s2)
+#     v.plot_PointCloud(s2, c="green")
 
 
     v.root.mainloop()
