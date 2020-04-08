@@ -13,8 +13,8 @@ canvas = tk.Canvas(r,width=500,height=500)
 canvas.pack()
 
 
-def create_point(x,y):
-    canvas.create_oval(x, y, x, y, width = 1, fill = '#000000')
+def create_point(x,y, c = '#000000', w= 1):
+    canvas.create_oval(x, y, x, y, width = w, fill = c)
 
 def update():
     try:
@@ -26,7 +26,10 @@ def update():
             # print(angle,dist)
             a = math.radians(angle)
             create_point(250 + math.sin(a) * dist/50, 250 - math.cos(a) * dist/50)
-        find_landmarks(data)
+        land = find_landmarks(data)
+        for x,y in land:
+            create_point(x,y,c="#00ff00", w =5)
+            print(x,y)
         print()
     finally:
         r.after(100,update)
@@ -35,44 +38,38 @@ def find_landmarks(scan):
         xs = []
         ys = []
 
-        img = np.zeros((600,600), dtype=np.uint8)
+        points = np.zeros((len(scan),2))
 
-        for _, angle, dist in scan:
+        for i,(_, angle, dist) in enumerate(scan):
             a = math.radians(angle)
-            x = int(350 + math.sin(a) * dist/10)
-            y = int(350 - math.cos(a) * dist/10)
-            try:
-                img[x,y] = 255
-            except IndexError:
-                pass
+            x = 250 + math.sin(a) * dist/50
+            y = 250 - math.cos(a) * dist/50
+
+            # xs.append(x)
+            # ys.append(y)
+            points[i,0] = x
+            points[i,1] = y
 
 
-        # blur = 255 - img #cv2.GaussianBlur(img,(3,3),0)
-        blur = 255 - 10*cv2.GaussianBlur(img,(7,7),0)
-        blur[blur>255] = 255
-        blur[blur<0] = 0
+        out = []
+        for p1, p2,p3 in zip(np.roll(points,-1, axis=0),
+                             np.roll(points, 0, axis=0),
+                             np.roll(points, 1, axis=0)):
 
-        # lines = cv2.HoughLinesP(blur,1,np.pi/180,100,100,100)
-        lines = cv2.HoughLines(blur,1,np.pi/180,10)
-        # print("lines",lines)
+            a = - grad(p1,p2) * grad(p2,p3)
 
-        if lines is None:
-            cv2.imshow("frame",blur)
-            return 
+            if ( a > 0.5 and a<1.5):
+                # print(a)
+                out.append( (p2[0], p2[1]) )
 
-        print(len(lines[0]))
-        for rho,theta in lines[0]:
-            a = np.cos(theta)
-            b = np.sin(theta)
-            x0 = a*rho
-            y0 = b*rho
-            x1 = int(x0 + 1000*(-b))
-            y1 = int(y0 + 1000*(a))
-            x2 = int(x0 - 1000*(-b))
-            y2 = int(y0 - 1000*(a))
-            blur = cv2.line(blur,(x1,y1),(x2,y2),(0),4)
+        return out
 
-        cv2.imshow("frame",blur)
+
+
+
+def grad(p1, p2):
+    dx ,dy = p1 - p2
+    return dy/dx
 
 
 r.after(100,update)
