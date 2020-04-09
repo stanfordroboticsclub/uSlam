@@ -20,6 +20,8 @@ class Robot:
         self.y = y
         self.a = 0
 
+        self.last_f = 1
+
         self.prev_pos = [self.x,self.y,self.a]
         self.prev_time = time()
 
@@ -31,7 +33,7 @@ class Robot:
         dy = self.y - self.prev_pos[1]
         da = self.a - self.prev_pos[2]
 
-        dr = (dx**2 + dy**2)**0.5
+        dr = self.last_f * (dx**2 + dy**2)**0.5
         dt = time() - self.prev_time
 
         self.prev_pos = [self.x,self.y,self.a]
@@ -43,6 +45,9 @@ class Robot:
         self.x += f * np.sin(self.a)
         self.y += f * np.cos(self.a)
         self.a += theta
+
+        #ugly hack but yank code anyways
+        self.last_f = -1 if f<0 else 1
         self.redraw()
 
     def redraw(self):
@@ -86,7 +91,7 @@ class Simualtor:
 
         self.scan_points = []
         self.lidar = Publisher(8110)
-        self.odom = Publisher(8821) # publishes twist not wheel rotations
+        self.odom = Publisher(8810) # publishes twist not wheel rotations
 
         self.master.after(1000, self.scan)
         self.master.after(100, self.odom_pub)
@@ -114,7 +119,7 @@ class Simualtor:
 
     def odom_pub(self):
         out = self.robot.get_odom()
-        self.odom.send( (out[0]/self.PIX_per_M, -out[1]) )
+        self.odom.send( {"single": { "odom": (out[1], 1000 * out[0]/self.PIX_per_M) }})
         self.master.after(100, self.odom_pub)
 
     def scan(self):
@@ -141,7 +146,7 @@ class Simualtor:
                 y += c
                 items = self.canvas.find_overlapping(x,y, x+2, y+2)
                 if len(items) != 0:
-                    output.append( (None, np.degrees(angle + self.robot.a), 1000*dist/self.PIX_per_M) )
+                    output.append( (0, np.degrees(angle + self.robot.a), 1000*dist/self.PIX_per_M) )
                     self.scan_points.append(self.canvas.create_line(x, y, x+1, y, fill='red'))
                     break
 
