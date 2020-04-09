@@ -571,19 +571,21 @@ class PointCloud:
         return PointCloud( (tranform.matrix @ self.points.T).T )
 
     def extend(self, other):
-        MIN_DIST = 80
+        start = time.time()
+        MIN_DIST = 100
 
-        nbrs = NearestNeighbors(n_neighbors=1).fit(self.points)
+        nbrs = NearestNeighbors(n_neighbors=2).fit(self.points)
         distances, indices = nbrs.kneighbors(other.points)
 
-        distances = np.squeeze(distances)
+        distances = np.mean(distances, axis=-1)
         matched_other = other.points[distances > MIN_DIST, :]
+        print("extend", time.time() -start)
         return PointCloud( np.vstack( (self.points, matched_other) ))
 
     def fitICP(self, other):
         # TODO: better way of terminating
         transform = Transform.fromComponents(0)
-        for itereation in range(50):
+        for itereation in range(10):
             aligment = self.AlignSVD(other)
             # print("aligment", aligment.matrix)
             other = other.move(aligment)
@@ -593,18 +595,17 @@ class PointCloud:
             x,y = aligment.matrix[:2,:2] @ np.array([1,0])
             angle = np.arctan2(y,x)
 
-            if( angle < 0.01 and dist < 5 ):
+            if( angle < 0.001 and dist < 1 ):
                 print("done", itereation)
-                break
+                return other, transform
         else:
             print("convergence failure!")
-            return None, None
+            return None, transform
 
-        return other, transform
 
     def AlignSVD(self, other):
         # other is the one moving
-        MAX_DIST = 250
+        MAX_DIST = 500
 
         # print("self", np.where(np.isnan(self.points)) )
         # print("other", np.where(np.isnan(other.points)) )
@@ -624,8 +625,6 @@ class PointCloud:
         matched_indes = indices[distances <= MAX_DIST]
         matched_other = other.points[distances <= MAX_DIST, :]
         matched_self  = self.points[matched_indes, :]
-
-        mean_dist = np.mean(distances[distances <= MAX_DIST])
 
         self_mean = np.mean(matched_self, axis=0)
         other_mean = np.mean(matched_other, axis=0)
@@ -655,7 +654,7 @@ class PointCloud:
 
 
 class Vizualizer(tk.Tk):
-    def __init__(self, size = 1000, mm_per_pix = 5):
+    def __init__(self, size = 1000, mm_per_pix = 10):
         super().__init__()
         self.SIZE = size
         self.MM_PER_PIX = mm_per_pix
@@ -711,8 +710,8 @@ class SLAM:
     def __init__(self):
         self.viz = Vizualizer()
 
-        self.odom  = Subscriber(8810, timeout=0.5)
-        self.lidar = Subscriber(8110, timeout=0.5)
+        self.odom  = Subscriber(8810, timeout=0.2)
+        self.lidar = Subscriber(8110, timeout=0.2)
 
         self.robot = Robot()
         self.update_time = time.time()
@@ -745,6 +744,7 @@ class SLAM:
             self.robot.drive(t)
             self.viz.plot_Robot(self.robot)
         except timeout:
+            print("odom timeout")
             pass
 
     def update_lidar(self):
@@ -754,8 +754,7 @@ class SLAM:
             pc = PointCloud.fromScan(scan)
 
             # lidar in robot frame
-            pc = pc.move(Transform.fromComponents(0, (0,0) ))
-
+            pc = pc.move(Transform.fromComponents(0, (-100,0) ))
             pc = pc.move( self.robot.get_transform() )
 
             if(self.scan == None):
@@ -767,14 +766,14 @@ class SLAM:
                 # self.viz.plot_PointCloud(pc, c="blue")
 
                 cloud, transform = self.scan.fitICP(pc)
-                if transform is not None:
+                self.robot.move(transform)
+                if cloud is not None:
                     self.viz.plot_PointCloud(cloud, c="green")
-                    self.robot.move(transform)
                     self.scan = self.scan.extend( cloud )
-
-
+                    # self.scan.extend( cloud )
 
         except timeout:
+            print("lidar timeout")
             pass
 
 
