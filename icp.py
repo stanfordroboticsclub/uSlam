@@ -87,10 +87,20 @@ class PointCloud:
         MIN_DIST = 100
 
         nbrs = NearestNeighbors(n_neighbors=2).fit(self.points)
-        distances, indices = nbrs.kneighbors(other.points)
+
+        # only middle (high resolution) points are valid to add
+        ranges = (other.points - np.mean(other.points, axis=0))[:, :2]
+        ranges = np.sum(ranges**2, axis=-1)**0.5
+        # print(ranges)
+        points = other.points[ ranges < 2500, :]
+
+        if points.shape[0] == 0:
+            return self
+
+        distances, indices = nbrs.kneighbors(points)
 
         distances = np.mean(distances, axis=-1)
-        matched_other = other.points[distances > MIN_DIST, :]
+        matched_other = points[distances > MIN_DIST, :]
         print("extend", time.time() -start)
         return PointCloud( np.vstack( (self.points, matched_other) ))
 
@@ -100,12 +110,17 @@ class PointCloud:
         for itereation in range(10):
             aligment = self.AlignSVD(other)
             # print("aligment", aligment.matrix)
-            other = other.move(aligment)
-            transform = aligment.combine(transform)
 
-            dist = np.sum(aligment.matrix[:2, 2] **2)
+            dist = np.sum(aligment.matrix[:2, 2] **2)**0.5
             x,y = aligment.matrix[:2,:2] @ np.array([1,0])
             angle = np.arctan2(y,x)
+
+            if( angle > 0.8 or dist > 1000 ):
+                print("sketchy", itereation, angle, dist)
+                return None, transform
+
+            transform = aligment.combine(transform)
+            other = other.move(aligment)
 
             if( angle < 0.001 and dist < 1 ):
                 print("done", itereation)
@@ -280,7 +295,7 @@ class SLAM:
                 cloud, transform = self.scan.fitICP(pc)
                 self.robot.move(transform)
                 if cloud is not None:
-                    self.viz.plot_PointCloud(cloud, c="green")
+                    self.viz.plot_PointCloud(cloud, c="red")
                     self.scan = self.scan.extend( cloud )
                     # self.scan.extend( cloud )
 
