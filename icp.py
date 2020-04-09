@@ -527,9 +527,13 @@ class Robot:
     def __init__(self, xy = (0,0), angle = 0):
         self.tranform = Transform.fromComponents(angle, xy)
 
-    def move(self, tranform):
+    def drive(self, tranform):
+        #local move
         self.tranform = self.tranform.combine(tranform)
-        # self.tranform = tranform.combine(self.tranform)
+
+    def move(self, tranform):
+        #global move
+        self.tranform = tranform.combine(self.tranform)
 
     def get_transform(self):
         return self.tranform
@@ -558,15 +562,15 @@ class PointCloud:
         return cls( array )
 
     def move(self, tranform):
-        print("matrix", matrix.shape)
+        print("matrix", tranform.matrix.shape)
         print("self", self.points.shape)
-        self.points =  self.points @ tranform.matrix
+        return PointCloud( (tranform.matrix @ self.points.T).T )
 
     def fitICP(self, other):
-        for _ in range(5):
-            R, t = self.AlignSVD(other)
-            other.move(t)
-            other.tranform(R)
+        # TODO: better way of terminating
+        for _ in range(10):
+            aligment = self.AlignSVD(other)
+            other = other.move(aligment)
         return other
 
     def AlignSVD(self, other):
@@ -598,9 +602,18 @@ class PointCloud:
         U,W,V_t = np.linalg.svd(M)
 
         R = np.dot(V_t.T,U.T)
-        t = self_mean - other_mean
 
-        return R, t
+        #consequence of homogeneous coordinates
+        assert R[0,2] == 0
+        assert R[1,2] == 0
+        assert R[2,2] == 1
+        assert R[2,0] == 0
+        assert R[2,1] == 0
+        
+        t = self_mean - other_mean
+        R[:2,2] = t[:2]
+        
+        return Transform(R)
 
 
 class Vizualizer:
@@ -612,11 +625,11 @@ class Vizualizer:
         self.canvas = tk.Canvas(self.root,width=self.SIZE,height=self.SIZE)
         self.canvas.pack()
 
-        self.robot = None
+        self.robot = []
         
     def plot_PointCloud(self, pc, c='#000000'):
         for x, y,_ in pc.points:
-            self.create_point(self.SIZE/2 + x/self.MM_PER_PIX, self.SIZE/2 + y/self.MM_PER_PIX, c=c)
+            self.create_point(x, y, c=c)
 
     def plot_Robot(self, robot):
         pos, head = robot.get_pose()
@@ -624,17 +637,23 @@ class Vizualizer:
         print("head", head)
 
         head *= 20
-        self.canvas.create_line(self.SIZE/2 + pos[0]/self.MM_PER_PIX,
+
+        for obj in self.robot:
+            self.canvas.delete(obj)
+
+        arrow = self.canvas.create_line(self.SIZE/2 + pos[0]/self.MM_PER_PIX,
                            self.SIZE/2 - pos[1]/self.MM_PER_PIX,
                            self.SIZE/2 + pos[0]/self.MM_PER_PIX + head[0],
                            self.SIZE/2 - pos[1]/self.MM_PER_PIX - head[1],
                            arrow=tk.LAST)
 
-        self.canvas.create_oval(self.SIZE/2+5 + pos[0]/self.MM_PER_PIX, 
+        oval = self.canvas.create_oval(self.SIZE/2+5 + pos[0]/self.MM_PER_PIX, 
                                 self.SIZE/2+5 - pos[1]/self.MM_PER_PIX,
                                 self.SIZE/2-5 + pos[0]/self.MM_PER_PIX,
                                 self.SIZE/2-5 - pos[1]/self.MM_PER_PIX,
                                 fill = '#FF0000')
+
+        self.robot = [arrow,oval]
 
     def create_point(self,x,y, c = '#000000', w= 1):
         self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,
@@ -649,20 +668,15 @@ if __name__ == "__main__":
     r = Robot()
 
     v.plot_Robot(r)
-    r.move(Transform.fromComponents(90, (0,50)))
-    v.plot_Robot(r)
 
-    r.move(Transform.fromComponents(90, (0,100)))
-    v.plot_Robot(r)
+    s1 = PointCloud.fromScan(scan1).move(Transform.fromComponents(0, (400,0)))
+    s2 = PointCloud.fromScan(scan2).move(Transform.fromComponents(15, (400,0)))
 
-#     s1 = PointCloud.fromScan(scan1)
-#     s2 = PointCloud.fromScan(scan2)
+    v.plot_PointCloud(s1)
+    v.plot_PointCloud(s2, c="blue")
 
-#     v.plot_PointCloud(s1)
-#     v.plot_PointCloud(s2, c="blue")
-
-#     s1.fitICP(s2)
-#     v.plot_PointCloud(s2, c="green")
+    s3 = s1.fitICP(s2)
+    v.plot_PointCloud(s3, c="green")
 
 
     v.root.mainloop()
