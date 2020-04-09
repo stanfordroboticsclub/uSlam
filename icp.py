@@ -3,6 +3,7 @@ import math
 
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
+import time
 
 
 scan1 = [[27, 354.4375, 389.5],
@@ -558,7 +559,7 @@ class PointCloud:
         scan = np.array(scan)
         angles = np.radians(scan[:,1])
         dists = scan[:,2]
-        array = np.stack([dists*np.sin(angles), -dists*np.cos(angles), np.ones(angles.shape)], axis=-1)
+        array = np.stack([dists*np.cos(angles), dists*np.sin(angles), np.ones(angles.shape)], axis=-1)
         return cls( array )
 
     def move(self, tranform):
@@ -626,6 +627,9 @@ class Vizualizer:
         self.canvas.pack()
 
         self.robot = []
+        self.odom = Subscriber(8810, timeout=0.5)
+        self.r = Robot()
+        self.updated = time.time()
         
     def plot_PointCloud(self, pc, c='#000000'):
         for x, y,_ in pc.points:
@@ -661,22 +665,37 @@ class Vizualizer:
                                 self.SIZE/2 + x/self.MM_PER_PIX,
                                 self.SIZE/2 - y/self.MM_PER_PIX, width = w, fill = c, outline = c)
 
+    def update(self):
+        try:
+            dt = time.time() - self.updated
+            da, dy = self.odom.get()['single']['odom']
+            da *= dt
+            dy *= dt
+            t = Transform.fromOdometry(da, (0,dy))
+            self.r.drive(t)
+            self.plot_Robot(self.r)
+            self.updated = time.time()
+        except timeout:
+            pass
+        finally:
+            self.root.after(100,self.update)
+
+
+from UDPComms import Subscriber,timeout
 
 if __name__ == "__main__":
     v = Vizualizer()
+    v.update()
 
-    r = Robot()
 
-    v.plot_Robot(r)
+    # s1 = PointCloud.fromScan(scan1).move(Transform.fromComponents(0, (400,0)))
+    # s2 = PointCloud.fromScan(scan2).move(Transform.fromComponents(15, (400,0)))
 
-    s1 = PointCloud.fromScan(scan1).move(Transform.fromComponents(0, (400,0)))
-    s2 = PointCloud.fromScan(scan2).move(Transform.fromComponents(15, (400,0)))
+    # v.plot_PointCloud(s1)
+    # v.plot_PointCloud(s2, c="blue")
 
-    v.plot_PointCloud(s1)
-    v.plot_PointCloud(s2, c="blue")
-
-    s3 = s1.fitICP(s2)
-    v.plot_PointCloud(s3, c="green")
+    # s3 = s1.fitICP(s2)
+    # v.plot_PointCloud(s3, c="green")
 
 
     v.root.mainloop()
