@@ -5,6 +5,8 @@ from sklearn.neighbors import NearestNeighbors
 import numpy as np
 import time
 
+from UDPComms import Subscriber,timeout
+
 
 scan1 = [[27, 354.4375, 389.5],
 [27, 355.703125, 388.75],
@@ -556,27 +558,41 @@ class PointCloud:
 
     @classmethod
     def fromScan(cls, scan):
+        # from y axis clockwise
         scan = np.array(scan)
         angles = np.radians(scan[:,1])
         dists = scan[:,2]
-        array = np.stack([dists*np.cos(angles), dists*np.sin(angles), np.ones(angles.shape)], axis=-1)
+        array = np.stack([dists*np.sin(angles), dists*np.cos(angles), np.ones(angles.shape)], axis=-1)
         return cls( array )
 
     def move(self, tranform):
-        print("matrix", tranform.matrix.shape)
-        print("self", self.points.shape)
+        # print("matrix", tranform.matrix.shape)
+        # print("self", self.points.shape)
         return PointCloud( (tranform.matrix @ self.points.T).T )
 
     def fitICP(self, other):
         # TODO: better way of terminating
-        for _ in range(10):
+        transform = Transform.fromComponents(0)
+        for _ in range(5):
             aligment = self.AlignSVD(other)
+            # print("aligment", aligment.matrix)
             other = other.move(aligment)
-        return other
+            transform = aligment.combine(transform)
+
+            print( np.sum(aligment.matrix - np.eye(3)) )
+            if( np.sum(aligment.matrix - np.eye(3)) < 0.01 ):
+                print("done")
+                break
+
+        return other, transform
 
     def AlignSVD(self, other):
         # other is the one moving
         MAX_DIST = 100
+
+        # print("self", np.where(np.isnan(self.points)) )
+        # print("other", np.where(np.isnan(other.points)) )
+        # print("other", other.points )
 
         # keep around
         nbrs = NearestNeighbors(n_neighbors=1).fit(self.points)
@@ -585,9 +601,9 @@ class PointCloud:
         distances = np.squeeze(distances)
         indices = np.squeeze(indices)
 
-        print("distances:", distances.shape)
-        print("indices:", indices.shape)
-        print("other:", other.points.shape)
+        # print("distances:", distances.shape)
+        # print("indices:", indices.shape)
+        # print("other:", other.points.shape)
 
         matched_indes = indices[distances <= MAX_DIST]
         matched_other = other.points[distances <= MAX_DIST, :]
@@ -595,6 +611,9 @@ class PointCloud:
 
         self_mean = np.mean(matched_self, axis=0)
         other_mean = np.mean(matched_other, axis=0)
+
+        if matched_self.shape[0] == 0:
+            return Transform(np.eye(3))
 
         matched_self = matched_self- self_mean
         matched_other = matched_other - other_mean
@@ -617,28 +636,30 @@ class PointCloud:
         return Transform(R)
 
 
-class Vizualizer:
-    def __init__(self, size = 1000, mm_per_pix = 2):
+class Vizualizer(tk.Tk):
+    def __init__(self, size = 1000, mm_per_pix = 5):
+        super().__init__()
         self.SIZE = size
         self.MM_PER_PIX = mm_per_pix
 
-        self.root = tk.Tk()
-        self.canvas = tk.Canvas(self.root,width=self.SIZE,height=self.SIZE)
+        self.canvas = tk.Canvas(self,width=self.SIZE,height=self.SIZE)
         self.canvas.pack()
 
         self.robot = []
-        self.odom = Subscriber(8810, timeout=0.5)
-        self.r = Robot()
-        self.updated = time.time()
+        self.point_cloud = []
         
+    def clear_PointCloud(self):
+        for obj in self.point_cloud:
+            self.canvas.delete(obj)
+
     def plot_PointCloud(self, pc, c='#000000'):
         for x, y,_ in pc.points:
-            self.create_point(x, y, c=c)
+            self.point_cloud.append(self.create_point(x, y, c=c))
 
     def plot_Robot(self, robot):
         pos, head = robot.get_pose()
-        print("pos", pos)
-        print("head", head)
+        # print("pos", pos)
+        # print("head", head)
 
         head *= 20
 
@@ -660,42 +681,96 @@ class Vizualizer:
         self.robot = [arrow,oval]
 
     def create_point(self,x,y, c = '#000000', w= 1):
-        self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,
+        return self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,
                                 self.SIZE/2 - y/self.MM_PER_PIX,
                                 self.SIZE/2 + x/self.MM_PER_PIX,
                                 self.SIZE/2 - y/self.MM_PER_PIX, width = w, fill = c, outline = c)
 
+
+
+
+class SLAM:
+    def __init__(self):
+        self.viz = Vizualizer()
+
+        self.odom  = Subscriber(8810, timeout=0.5)
+        self.lidar = Subscriber(8110, timeout=0.5)
+
+        self.robot = Robot()
+        self.updated_odom = time.time()
+        self.scan = None
+
+        self.viz.after(100,self.update)
+        self.viz.mainloop()
+
+
     def update(self):
+        self.update_odom()
+        self.update_lidar()
+
+        self.viz.after(100,self.update)
+
+    def update_odom(self):
         try:
-            dt = time.time() - self.updated
+            dt = time.time() - self.updated_odom
+            print("dt", dt)
+            self.updated_odom = time.time()
+
             da, dy = self.odom.get()['single']['odom']
             da *= dt
             dy *= dt
+
             t = Transform.fromOdometry(da, (0,dy))
-            self.r.drive(t)
-            self.plot_Robot(self.r)
-            self.updated = time.time()
+            self.robot.drive(t)
+            self.viz.plot_Robot(self.robot)
         except timeout:
             pass
-        finally:
-            self.root.after(100,self.update)
+
+    def update_lidar(self):
+        try:
+            scan = self.lidar.get()
+            # print("scan", scan)
+            pc = PointCloud.fromScan(scan)
+
+            # lidar in robot frame
+            pc = pc.move(Transform.fromComponents(0, (0,0) ))
+
+            pc = pc.move( self.robot.get_transform() )
+
+            if(self.scan == None):
+                self.scan = pc
+                self.viz.plot_PointCloud(self.scan)
+            else:
+                self.viz.clear_PointCloud()
+                self.viz.plot_PointCloud(self.scan)
+                self.viz.plot_PointCloud(pc, c="blue")
+
+                cloud, transform = self.scan.fitICP(pc)
+                self.viz.plot_PointCloud(cloud, c="green")
+                self.robot.move(transform)
 
 
-from UDPComms import Subscriber,timeout
+
+        except timeout:
+            pass
+
 
 if __name__ == "__main__":
-    v = Vizualizer()
-    v.update()
+    s = SLAM()
 
-
+    # v = Vizualizer()
     # s1 = PointCloud.fromScan(scan1).move(Transform.fromComponents(0, (400,0)))
     # s2 = PointCloud.fromScan(scan2).move(Transform.fromComponents(15, (400,0)))
 
     # v.plot_PointCloud(s1)
     # v.plot_PointCloud(s2, c="blue")
 
-    # s3 = s1.fitICP(s2)
-    # v.plot_PointCloud(s3, c="green")
+    # s3, transform = s1.fitICP(s2)
+    # # v.plot_PointCloud(s3, c="green")
+
+    # s4 = s2.move(transform)
+    # v.plot_PointCloud(s4, c="green")
+
+    # v.mainloop()
 
 
-    v.root.mainloop()
