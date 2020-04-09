@@ -573,14 +573,14 @@ class PointCloud:
     def fitICP(self, other):
         # TODO: better way of terminating
         transform = Transform.fromComponents(0)
-        for _ in range(5):
-            aligment = self.AlignSVD(other)
+        for _ in range(15):
+            aligment, mean_dist = self.AlignSVD(other)
             # print("aligment", aligment.matrix)
             other = other.move(aligment)
             transform = aligment.combine(transform)
 
-            print( np.sum(aligment.matrix - np.eye(3)) )
-            if( np.sum(aligment.matrix - np.eye(3)) < 0.01 ):
+            print("mean_dist", mean_dist)
+            if( mean_dist < 40 ):
                 print("done")
                 break
 
@@ -609,11 +609,13 @@ class PointCloud:
         matched_other = other.points[distances <= MAX_DIST, :]
         matched_self  = self.points[matched_indes, :]
 
+        mean_dist = np.mean(distances[distances <= MAX_DIST])
+
         self_mean = np.mean(matched_self, axis=0)
         other_mean = np.mean(matched_other, axis=0)
 
         if matched_self.shape[0] == 0:
-            return Transform(np.eye(3))
+            return Transform(np.eye(3)), float("9999")
 
         matched_self = matched_self- self_mean
         matched_other = matched_other - other_mean
@@ -633,7 +635,7 @@ class PointCloud:
         t = self_mean - other_mean
         R[:2,2] = t[:2]
         
-        return Transform(R)
+        return Transform(R), mean_dist
 
 
 class Vizualizer(tk.Tk):
