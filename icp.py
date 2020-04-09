@@ -38,6 +38,12 @@ class Transform:
         matrix[:2,2]  = np.linalg.inv(R) @ self.matrix[:2, 2]
         return Transform(matrix)
 
+    def get_components(self):
+        x,y = self.matrix[:2,:2] @ np.array([1,0])
+        angle = np.arctan2(y,x)
+        return (angle, self.matrix[:2, 2])
+
+
 class Robot:
     def __init__(self, xy = (0,0), angle = 0):
         self.tranform = Transform.fromComponents(angle, xy)
@@ -89,6 +95,7 @@ class PointCloud:
         nbrs = NearestNeighbors(n_neighbors=2).fit(self.points)
 
         # only middle (high resolution) points are valid to add
+        print("other", other.points.shape)
         ranges = (other.points - np.mean(other.points, axis=0))[:, :2]
         ranges = np.sum(ranges**2, axis=-1)**0.5
         # print(ranges)
@@ -99,6 +106,8 @@ class PointCloud:
 
         distances, indices = nbrs.kneighbors(points)
 
+        
+        print("distances", distances.shape)
         distances = np.mean(distances, axis=-1)
         matched_other = points[distances > MIN_DIST, :]
         print("extend", time.time() -start)
@@ -107,15 +116,14 @@ class PointCloud:
     def fitICP(self, other):
         # TODO: better way of terminating
         transform = Transform.fromComponents(0)
-        for itereation in range(10):
+        for itereation in range(5):
             aligment = self.AlignSVD(other)
             # print("aligment", aligment.matrix)
 
-            dist = np.sum(aligment.matrix[:2, 2] **2)**0.5
-            x,y = aligment.matrix[:2,:2] @ np.array([1,0])
-            angle = np.arctan2(y,x)
+            angle, xy = aligment.get_components()
+            dist = np.sum(xy**2)**0.5
 
-            if( angle > 0.8 or dist > 1000 ):
+            if( np.abs(angle) > 0.3 or dist > 300 ):
                 print("sketchy", itereation, angle, dist)
                 return None, transform
 
@@ -124,6 +132,12 @@ class PointCloud:
 
             if( angle < 0.001 and dist < 1 ):
                 print("done", itereation)
+                angle, xy = transform.get_components()
+                dist = np.sum(xy**2)**0.5
+                print("angle", angle, "Xy", xy)
+                if( np.abs(angle) > 0.3 or dist > 300):
+                    print("sketchy", itereation, angle)
+                    return None, Transform(np.eye(3))
                 return other, transform
         else:
             print("convergence failure!")
@@ -132,7 +146,7 @@ class PointCloud:
 
     def AlignSVD(self, other):
         # other is the one moving
-        MAX_DIST = 500
+        MAX_DIST = 300
 
         # print("self", np.where(np.isnan(self.points)) )
         # print("other", np.where(np.isnan(other.points)) )
@@ -153,11 +167,15 @@ class PointCloud:
         matched_other = other.points[distances <= MAX_DIST, :]
         matched_self  = self.points[matched_indes, :]
 
+        # print("matched_self", matched_self.shape)
+        # print("matched_other", matched_other.shape)
+
+        if matched_self.shape[0] < 10:
+            print("not enough matches")
+            return Transform(np.eye(3))
+
         self_mean = np.mean(matched_self, axis=0)
         other_mean = np.mean(matched_other, axis=0)
-
-        if matched_self.shape[0] == 0:
-            return Transform(np.eye(3))
 
         matched_self = matched_self- self_mean
         matched_other = matched_other - other_mean
@@ -181,7 +199,7 @@ class PointCloud:
 
 
 class Vizualizer(tk.Tk):
-    def __init__(self, size = 1000, mm_per_pix = 10):
+    def __init__(self, size = 1000, mm_per_pix = 15):
         super().__init__()
         self.SIZE = size
         self.MM_PER_PIX = mm_per_pix
@@ -196,9 +214,11 @@ class Vizualizer(tk.Tk):
         for obj in self.point_cloud:
             self.canvas.delete(obj)
 
-    def plot_PointCloud(self, pc, c='#000000'):
+    def plot_PointCloud(self, pc, c='#000000', clear=True):
         for x, y,_ in pc.points:
-            self.point_cloud.append(self.create_point(x, y, c=c))
+            point = self.create_point(x, y, c=c)
+            if clear:
+                self.point_cloud.append(point)
 
     def plot_Robot(self, robot):
         pos, head = robot.get_pose()
@@ -238,7 +258,7 @@ class SLAM:
         self.viz = Vizualizer()
 
         self.odom  = Subscriber(8810, timeout=0.2)
-        self.lidar = Subscriber(8110, timeout=0.2)
+        self.lidar = Subscriber(8110, timeout=0.1)
 
         self.robot = Robot()
         self.update_time = time.time()
@@ -286,18 +306,18 @@ class SLAM:
 
             if(self.scan == None):
                 self.scan = pc
-                self.viz.plot_PointCloud(self.scan)
+                self.viz.plot_PointCloud(self.scan, clear = False)
             else:
                 self.viz.clear_PointCloud()
-                self.viz.plot_PointCloud(self.scan)
-                # self.viz.plot_PointCloud(pc, c="blue")
+                # self.viz.plot_PointCloud(self.scan)
+                self.viz.plot_PointCloud(pc, c="blue")
 
                 cloud, transform = self.scan.fitICP(pc)
                 self.robot.move(transform)
                 if cloud is not None:
                     self.viz.plot_PointCloud(cloud, c="red")
                     self.scan = self.scan.extend( cloud )
-                    # self.scan.extend( cloud )
+                    self.viz.plot_PointCloud( cloud, clear = False)
 
         except timeout:
             print("lidar timeout")
