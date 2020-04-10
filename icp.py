@@ -89,7 +89,6 @@ class PointCloud:
         return PointCloud( (tranform.matrix @ self.points.T).T )
 
     def extend(self, other):
-        start = time.time()
         MIN_DIST = 100
 
         nbrs = NearestNeighbors(n_neighbors=2).fit(self.points)
@@ -105,12 +104,10 @@ class PointCloud:
             return self
 
         distances, indices = nbrs.kneighbors(points)
-
         
-        print("distances", distances.shape)
+        # print("distances", distances.shape)
         distances = np.mean(distances, axis=-1)
         matched_other = points[distances > MIN_DIST, :]
-        print("extend", time.time() -start)
         return PointCloud( np.vstack( (self.points, matched_other) ))
 
     def fitICP(self, other):
@@ -118,7 +115,8 @@ class PointCloud:
         transform = Transform.fromComponents(0)
         for itereation in range(5):
             aligment = self.AlignSVD(other)
-            # print("aligment", aligment.matrix)
+            if aligment is None:
+                return None, transform
 
             angle, xy = aligment.get_components()
             dist = np.sum(xy**2)**0.5
@@ -172,7 +170,7 @@ class PointCloud:
 
         if matched_self.shape[0] < 10:
             print("not enough matches")
-            return Transform(np.eye(3))
+            return None
 
         self_mean = np.mean(matched_self, axis=0)
         other_mean = np.mean(matched_other, axis=0)
@@ -309,13 +307,13 @@ class SLAM:
                 self.viz.plot_PointCloud(self.scan, clear = False)
             else:
                 self.viz.clear_PointCloud()
-                # self.viz.plot_PointCloud(self.scan)
+                self.viz.plot_PointCloud(self.scan)
                 self.viz.plot_PointCloud(pc, c="blue")
 
                 cloud, transform = self.scan.fitICP(pc)
                 self.robot.move(transform)
                 if cloud is not None:
-                    self.viz.plot_PointCloud(cloud, c="red")
+                    # self.viz.plot_PointCloud(cloud, c="red")
                     self.scan = self.scan.extend( cloud )
                     self.viz.plot_PointCloud( cloud, clear = False)
 
