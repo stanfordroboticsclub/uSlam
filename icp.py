@@ -110,10 +110,11 @@ class PointCloud:
         matched_other = points[distances > MIN_DIST, :]
         return PointCloud( np.vstack( (self.points, matched_other) ))
 
-    def fitICP(self, other):
+    def fitICP(self, other, update_odom):
         # TODO: better way of terminating
         transform = Transform.fromComponents(0)
-        for itereation in range(5):
+        for itereation in range(20):
+            update_odom()
             aligment = self.AlignSVD(other)
             if aligment is None:
                 return None, transform
@@ -260,37 +261,53 @@ class SLAM:
 
         self.robot = Robot()
         self.update_time = time.time()
-        self.dt = None
+        self.last_odom = time.time()
 
         self.scan = None
+
+        self.odom_acc = Transform.fromComponents(0)
 
         self.viz.after(100,self.update)
         self.viz.mainloop()
 
 
     def update(self):
-        self.dt = time.time() - self.update_time
         self.update_time = time.time()
-        print("dt", self.dt)
 
         self.update_odom()
+
+        self.robot.drive(self.odom_acc)
+        self.odom_acc = Transform.fromComponents(0)
+
+        self.viz.plot_Robot(self.robot)
+
         self.update_lidar()
+        print('update lidar',time.time() - self.update_time)
 
         loop_time = 1000 * (time.time() - self.update_time)
+        print('full loop',time.time() - self.update_time)
+        self.update_odom()
+
         self.viz.after( int(max(100 - loop_time, 0)) , self.update)
 
     def update_odom(self):
+        print("update odom called")
+        dt = time.time() - self.last_odom
+        # if( dt < 0.05):
+        #     return
+
         try:
             da, dy = self.odom.get()['single']['odom']
-            da *= self.dt
-            dy *= self.dt
-
-            t = Transform.fromOdometry(da, (0,dy))
-            self.robot.drive(t)
-            self.viz.plot_Robot(self.robot)
         except timeout:
             print("odom timeout")
-            pass
+            return
+        print("odom dt", dt)
+        self.last_odom = time.time()
+
+        da *= dt
+        dy *= dt
+
+        self.odom_acc =  Transform.fromOdometry(da, (0,dy)).combine(self.odom_acc)
 
     def update_lidar(self):
         try:
@@ -307,15 +324,17 @@ class SLAM:
                 self.viz.plot_PointCloud(self.scan, clear = False)
             else:
                 self.viz.clear_PointCloud()
-                self.viz.plot_PointCloud(self.scan)
+                # self.viz.plot_PointCloud(self.scan)
                 self.viz.plot_PointCloud(pc, c="blue")
 
-                cloud, transform = self.scan.fitICP(pc)
-                self.robot.move(transform)
+                cloud, transform = self.scan.fitICP(pc, lambda :self.update_odom() )
+                print('update lidar',time.time() - self.update_time)
                 if cloud is not None:
+                    self.robot.move(transform)
                     # self.viz.plot_PointCloud(cloud, c="red")
                     self.scan = self.scan.extend( cloud )
                     self.viz.plot_PointCloud( cloud, clear = False)
+                    print('update plot',time.time() - self.update_time)
 
         except timeout:
             print("lidar timeout")
