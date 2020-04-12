@@ -1,6 +1,7 @@
 import tkinter as tk
 import math
 import time
+import threading
 
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
@@ -43,6 +44,9 @@ class Transform:
         angle = np.arctan2(y,x)
         return (angle, self.matrix[:2, 2])
 
+    def copy(self):
+        return Transform(self.matrix)
+
 
 class Robot:
     def __init__(self, xy = (0,0), angle = 0):
@@ -66,6 +70,9 @@ class Robot:
         pos  = self.tranform.matrix @ pos
         head = self.tranform.matrix @ head - pos
         return (pos[:2], head[:2])
+
+    def copy(self):
+        return Robot(self.tranform.copy())
 
 class PointCloud:
     def __init__(self, array):
@@ -101,14 +108,15 @@ class PointCloud:
         points = other.points[ ranges < 2500, :]
 
         if points.shape[0] == 0:
-            return self
+            return
 
         distances, indices = nbrs.kneighbors(points)
         
         # print("distances", distances.shape)
         distances = np.mean(distances, axis=-1)
         matched_other = points[distances > MIN_DIST, :]
-        return PointCloud( np.vstack( (self.points, matched_other) ))
+
+        self.points = np.vstack( (self.points, matched_other) ))
 
     def fitICP(self, other):
         # TODO: better way of terminating
@@ -146,10 +154,6 @@ class PointCloud:
         # other is the one moving
         MAX_DIST = 300
 
-        # print("self", np.where(np.isnan(self.points)) )
-        # print("other", np.where(np.isnan(other.points)) )
-        # print("other", other.points )
-
         # keep around
         nbrs = NearestNeighbors(n_neighbors=1).fit(self.points)
         distances, indices = nbrs.kneighbors(other.points)
@@ -157,16 +161,9 @@ class PointCloud:
         distances = np.squeeze(distances)
         indices = np.squeeze(indices)
 
-        # print("distances:", distances.shape)
-        # print("indices:", indices.shape)
-        # print("other:", other.points.shape)
-
         matched_indes = indices[distances <= MAX_DIST]
         matched_other = other.points[distances <= MAX_DIST, :]
         matched_self  = self.points[matched_indes, :]
-
-        # print("matched_self", matched_self.shape)
-        # print("matched_other", matched_other.shape)
 
         if matched_self.shape[0] < 10:
             print("not enough matches")
@@ -204,25 +201,24 @@ class Vizualizer(tk.Tk):
 
         self.canvas = tk.Canvas(self,width=self.SIZE,height=self.SIZE)
         self.canvas.pack()
-
-        self.robot = []
-        self.point_cloud = []
         
-    def clear_PointCloud(self):
-        for obj in self.point_cloud:
-            self.canvas.delete(obj)
+    def delete(self, item):
+        if hasattr(item, "tkiner_canvas_ids"):
+            for obj in item.tkiner_canvas_ids:
+                self.canvas.delete(obj)
+        item.tkiner_canvas_ids = []
 
-    def plot_PointCloud(self, pc, c='#000000', clear=True):
+    def plot_PointCloud(self, pc, c='#000000'):
+        self.delete(pc)
+
         for x, y,_ in pc.points:
             point = self.create_point(x, y, c=c)
-            if clear:
-                self.point_cloud.append(point)
+            pc.tkiner_canvas_ids.append(point)
 
-    def plot_Robot(self, robot):
+    def plot_Robot(self, robot, c="#FF0000"):
+        self.delete(robot)
+
         pos, head = robot.get_pose()
-        # print("pos", pos)
-        # print("head", head)
-
         head *= 20
 
         for obj in self.robot:
@@ -238,9 +234,9 @@ class Vizualizer(tk.Tk):
                                 self.SIZE/2+5 - pos[1]/self.MM_PER_PIX,
                                 self.SIZE/2-5 + pos[0]/self.MM_PER_PIX,
                                 self.SIZE/2-5 - pos[1]/self.MM_PER_PIX,
-                                fill = '#FF0000')
+                                fill = c)
 
-        self.robot = [arrow,oval]
+        robot.tkiner_canvas_ids = [oval, arrow]
 
     def create_point(self,x,y, c = '#000000', w= 1):
         return self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,
@@ -264,62 +260,66 @@ class SLAM:
 
         self.scan = None
 
-        self.viz.after(100,self.update)
+        self.viz.after(100,self.update_viz)
         self.viz.mainloop()
 
 
-    def update(self):
-        self.dt = time.time() - self.update_time
-        self.update_time = time.time()
-        print("dt", self.dt)
+    def update_viz(self):
 
-        self.update_odom()
-        self.update_lidar()
+        self.viz.plot_Robot(self.robot)
 
-        loop_time = 1000 * (time.time() - self.update_time)
-        self.viz.after( int(max(100 - loop_time, 0)) , self.update)
+        self.viz.clear_PointCloud()
+        self.viz.plot_PointCloud(self.scan)
+
+        self.viz.after( 100 , self.update)
+
 
     def update_odom(self):
-        try:
-            da, dy = self.odom.get()['single']['odom']
-            da *= self.dt
-            dy *= self.dt
+        dt = 0.1
+        while self.running:
+            time.sleep(dt)
+            try:
+                da, dy = self.odom.get()['single']['odom']
+            except timeout:
+                print("odom timeout")
+                continue
 
+            da *= dt
+            dy *= dt
             t = Transform.fromOdometry(da, (0,dy))
-            self.robot.drive(t)
-            self.viz.plot_Robot(self.robot)
-        except timeout:
-            print("odom timeout")
-            pass
+
+            if( scan current ):
+                self.robot.drive(t)
+            else:
+                
+
 
     def update_lidar(self):
-        try:
-            scan = self.lidar.get()
-            # print("scan", scan)
-            pc = PointCloud.fromScan(scan)
+        while self.running:
+            time.sleep(0.1)
+            try:
+                scan = self.lidar.get()
+                pc = PointCloud.fromScan(scan)
 
-            # lidar in robot frame
-            pc = pc.move(Transform.fromComponents(0, (-100,0) ))
-            pc = pc.move( self.robot.get_transform() )
+                # lidar in robot frame
+                pc = pc.move(Transform.fromComponents(0, (-100,0) ))
+                pc = pc.move( self.robot.get_transform() )
 
-            if(self.scan == None):
-                self.scan = pc
-                self.viz.plot_PointCloud(self.scan, clear = False)
-            else:
-                self.viz.clear_PointCloud()
-                self.viz.plot_PointCloud(self.scan)
-                self.viz.plot_PointCloud(pc, c="blue")
+                if(self.scan == None):
+                    self.scan = pc
+                    self.viz.plot_PointCloud(self.scan)
+                else:
+                    self.viz.plot_PointCloud(pc, c="blue")
 
-                cloud, transform = self.scan.fitICP(pc)
-                self.robot.move(transform)
-                if cloud is not None:
-                    # self.viz.plot_PointCloud(cloud, c="red")
-                    self.scan = self.scan.extend( cloud )
-                    self.viz.plot_PointCloud( cloud, clear = False)
+                    cloud, transform = self.scan.fitICP(pc)
+                    self.robot.move(transform)
+                    if cloud is not None:
+                        # self.viz.plot_PointCloud(cloud, c="red")
+                        self.scan.extend( cloud )
+                        self.viz.plot_PointCloud( cloud )
 
-        except timeout:
-            print("lidar timeout")
-            pass
+            except timeout:
+                print("lidar timeout")
 
 
 if __name__ == "__main__":
