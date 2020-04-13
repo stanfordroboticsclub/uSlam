@@ -5,6 +5,7 @@ import threading
 
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
+import networkx as nx
 from UDPComms import Subscriber,timeout
 
 
@@ -256,20 +257,29 @@ class SLAM:
 
         self.robot = Robot()
         self.update_time = time.time()
-        self.dt = None
 
-        self.scan = None
+        self.keyframes = []
+        self.scan = None #most recent keyframe
+        self.lidar_scan = None
+
+        self.running = True
+        self.threads = []
+        self.threads.append( threading.Thread( target = self.update_odom, daemon = True) )
+        self.threads.append( threading.Thread( target = self.update_lidar, daemon = True) )
+        for thread in self.threads:
+            thread.start()
 
         self.viz.after(100,self.update_viz)
         self.viz.mainloop()
 
 
     def update_viz(self):
-
         self.viz.plot_Robot(self.robot)
 
+        self.viz.plot_PointCloud(self.scan, clear = False)
+
         self.viz.clear_PointCloud()
-        self.viz.plot_PointCloud(self.scan)
+        self.viz.plot_PointCloud(self.lidar_scan, c="blue")
 
         self.viz.after( 100 , self.update)
 
@@ -277,7 +287,6 @@ class SLAM:
     def update_odom(self):
         dt = 0.1
         while self.running:
-            time.sleep(dt)
             try:
                 da, dy = self.odom.get()['single']['odom']
             except timeout:
@@ -291,35 +300,47 @@ class SLAM:
             if( scan current ):
                 self.robot.drive(t)
             else:
+                pass
+
+            time.sleep(dt)
                 
 
 
     def update_lidar(self):
+        dt = 0.1
         while self.running:
-            time.sleep(0.1)
             try:
                 scan = self.lidar.get()
-                pc = PointCloud.fromScan(scan)
-
-                # lidar in robot frame
-                pc = pc.move(Transform.fromComponents(0, (-100,0) ))
-                pc = pc.move( self.robot.get_transform() )
-
-                if(self.scan == None):
-                    self.scan = pc
-                    self.viz.plot_PointCloud(self.scan)
-                else:
-                    self.viz.plot_PointCloud(pc, c="blue")
-
-                    cloud, transform = self.scan.fitICP(pc)
-                    self.robot.move(transform)
-                    if cloud is not None:
-                        # self.viz.plot_PointCloud(cloud, c="red")
-                        self.scan.extend( cloud )
-                        self.viz.plot_PointCloud( cloud )
-
             except timeout:
                 print("lidar timeout")
+                continue
+
+            pc = PointCloud.fromScan(scan)
+
+            # lidar in robot frame
+            pc = pc.move(Transform.fromComponents(0, (-100,0) ))
+            pc = pc.move( self.robot.get_transform() )
+            pc.location = self.robot.get_transform()
+
+            if len(self.keyframes) == 0:
+                self.keyframes.append(pc)
+                self.scan = pc
+                continue
+
+            # self.viz.plot_PointCloud(pc, c="blue")
+            cloud, transform = self.scan.fitICP(pc)
+
+            robot = self.robot.get_transform().get_components()[1]
+            scan  = self.scan.transform.get_transform().get_components()[1]
+
+            if cloud is not None:
+                self.robot.move(transform)
+                if np.linalg.norm(robot - scan) > 500:
+                    self.scan = pc.move(transform)
+                    self.keyframes.append( self.scan )
+
+            time.sleep(dt)
+
 
 
 if __name__ == "__main__":
