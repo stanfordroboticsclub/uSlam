@@ -138,6 +138,8 @@ class PointCloud:
 
             if( angle < 0.001 and dist < 1 ):
 
+                # self.last_matched_distances
+
                 # print("done", itereation)
                 angle, xy = transform.get_components()
                 dist = np.sum(xy**2)**0.5
@@ -146,6 +148,7 @@ class PointCloud:
                 if( np.abs(angle) > 0.8 or dist > 500):
                     print("sketchy", itereation, angle)
                     return None, Transform(np.eye(3))
+
                 return other, transform
         else:
             print("convergence failure!")
@@ -181,6 +184,8 @@ class PointCloud:
         U,W,V = np.linalg.svd(M)
 
         R = np.dot(V.T,U.T)
+
+        self.last_matched_distances = distances[distances <= MAX_DIST]
 
         #consequence of homogeneous coordinates
         assert R[0,2] == 0
