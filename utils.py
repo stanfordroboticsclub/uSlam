@@ -43,32 +43,32 @@ class Transform:
 
 class Robot:
     def __init__(self, xy = (0,0), angle = 0):
-        self.tranform = Transform.fromComponents(angle, xy)
+        self.transform = Transform.fromComponents(angle, xy)
 
-    def drive(self, tranform):
+    def drive(self, transform):
         #local move
-        self.tranform = self.tranform.combine(tranform)
+        self.transform = self.transform.combine(transform)
 
-    def move(self, tranform):
+    def move(self, transform):
         #global move
-        self.tranform = tranform.combine(self.tranform)
+        self.transform = transform.combine(self.transform)
 
     def get_transform(self):
-        return self.tranform
+        return self.transform
 
     def get_pose(self):
         pos = np.array([0,0,1])
         head = np.array([0,1,1])
 
-        pos  = self.tranform.matrix @ pos
-        head = self.tranform.matrix @ head - pos
+        pos  = self.transform.matrix @ pos
+        head = self.transform.matrix @ head - pos
         return (pos[:2], head[:2])
 
     def copy(self):
-        return Robot(self.tranform.copy())
+        return Robot(self.transform.copy())
 
     def replace(self, other):
-        self.transform = other.tranform
+        self.transform = other.transform.copy()
 
 class PointCloud:
     def __init__(self, array):
@@ -120,7 +120,7 @@ class PointCloud:
     def fitICP(self, other):
         # TODO: better way of terminating
         transform = Transform.fromComponents(0)
-        for itereation in range(15):
+        for itereation in range(50):
 
             aligment = self.AlignSVD(other)
             if aligment is None:
@@ -129,7 +129,7 @@ class PointCloud:
             angle, xy = aligment.get_components()
             dist = np.sum(xy**2)**0.5
 
-            if( np.abs(angle) > 0.3 or dist > 300 ):
+            if( np.abs(angle) > 0.4 or dist > 500 ):
                 print("sketchy", itereation, angle, dist)
                 return None, transform
 
@@ -138,12 +138,12 @@ class PointCloud:
 
             if( angle < 0.001 and dist < 1 ):
 
-                print("done", itereation)
+                # print("done", itereation)
                 angle, xy = transform.get_components()
                 dist = np.sum(xy**2)**0.5
-                print("angle", angle, "Xy", xy)
+                # print("angle", angle, "Xy", xy)
 
-                if( np.abs(angle) > 0.3 or dist > 300):
+                if( np.abs(angle) > 0.8 or dist > 500):
                     print("sketchy", itereation, angle)
                     return None, Transform(np.eye(3))
                 return other, transform

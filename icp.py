@@ -21,6 +21,7 @@ class SLAM:
 
         self.update_time = time.time()
         self.odom_transform = Transform.fromComponents(0)
+        self.odom_transfrom_lock = threading.Lock()
 
         self.keyframes = []
         self.scan = None #most recent keyframe
@@ -40,6 +41,7 @@ class SLAM:
     def update_viz(self):
         try:
             self.viz.plot_Robot(self.ploted_robot)
+            self.viz.plot_Robot(self.robot, c="blue")
 
             if self.scan is not None:
                 self.viz.plot_PointCloud(self.scan)
@@ -65,15 +67,16 @@ class SLAM:
             da *= dt
             dy *= dt
             t = Transform.fromOdometry(da, (0,dy))
-            self.odom_transform = t.combine(self.odom_transform)
-            self.ploted_robot.drive(t)
+            with self.odom_transfrom_lock:
+                self.odom_transform = t.combine(self.odom_transform)
+                self.ploted_robot.drive(t)
 
             time.sleep(dt)
                 
 
 
     def update_lidar(self):
-        dt = 0.1
+        dt = 0.12
         while self.running:
             try:
                 scan = self.lidar.get()
@@ -102,16 +105,19 @@ class SLAM:
             scan  = self.scan.location.get_components()[1]
 
             if cloud is not None:
+                print("robot pos updated")
                 self.robot.move(transform)
+
                 if np.linalg.norm(robot - scan) > 500:
                     print("new keyframe")
                     self.scan = pc.move(transform)
                     self.scan.location = self.robot.get_transform()
                     self.keyframes.append( self.scan )
 
-            self.robot.drive(self.odom_transform)
-            self.ploted_robot.replace(self.robot)
-            self.odom_transform = Transform.fromComponents(0)
+            with self.odom_transfrom_lock:
+                self.robot.drive(self.odom_transform)
+                self.odom_transform = Transform.fromComponents(0)
+                self.ploted_robot.transform = self.robot.get_transform().copy()
 
             time.sleep(dt)
 
