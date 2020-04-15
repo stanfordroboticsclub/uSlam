@@ -130,7 +130,7 @@ class PointCloud:
             dist = np.sum(xy**2)**0.5
 
             if( np.abs(angle) > 0.4 or dist > 500 ):
-                print("sketchy", itereation, angle, dist)
+                print("early sketchy", itereation, angle, dist)
                 return None, transform
 
             transform = aligment.combine(transform)
@@ -140,13 +140,26 @@ class PointCloud:
 
                 # self.last_matched_distances
 
-                # print("done", itereation)
+                print("done at itereation", itereation)
                 angle, xy = transform.get_components()
                 dist = np.sum(xy**2)**0.5
-                # print("angle", angle, "Xy", xy)
+                print("angle", angle, "dist", dist)
 
                 if( np.abs(angle) > 0.8 or dist > 500):
-                    print("sketchy", itereation, angle)
+                    print("sketchy")
+                    return None, Transform(np.eye(3))
+
+                mean = np.mean(self.last_matched_distances)
+                d = self.last_matched_distances - mean
+                std = np.sqrt(np.mean(d**2))
+                # if std != 0:
+                skew = np.mean(d**3)/std**3
+                # else:
+                #     skew = -99998765
+
+                print("skew", skew)
+                if( skew < 1):
+                    print("bad skew")
                     return None, Transform(np.eye(3))
 
                 return other, transform
@@ -167,11 +180,12 @@ class PointCloud:
         indices = np.squeeze(indices)
 
         matched_indes = indices[distances <= MAX_DIST]
-        matched_other = other.points[distances <= MAX_DIST, :]
-        matched_self  = self.points[matched_indes, :]
+        matched_other = other.points[distances <= MAX_DIST, :-1] # -1 removes homogeneous coord
+        matched_self  = self.points[matched_indes,          :-1]
 
         if matched_self.shape[0] < 10:
             print("not enough matches")
+            self.last_matched_distances = np.array([float("inf")])
             return None
 
         self_mean = np.mean(matched_self, axis=0)
@@ -183,19 +197,22 @@ class PointCloud:
         M = np.dot(matched_other.T,matched_self)
         U,W,V = np.linalg.svd(M)
 
-        R = np.dot(V.T,U.T)
+        R = V.T @ U.T
 
-        self.last_matched_distances = distances[distances <= MAX_DIST]
+        # is reflection is optimal fix it
+        if np.linalg.det(R) < 0:
+            R = V.T @ np.diag([1,-1]) @ U.T
 
-        #consequence of homogeneous coordinates
-        assert R[0,2] == 0
-        assert R[1,2] == 0
-        assert R[2,2] == 1
-        assert R[2,0] == 0
-        assert R[2,1] == 0
+        if not np.isclose(np.linalg.det(R), 1):
+            print("determinant", np.linalg.det(R))
+            raise ValueError
         
         t = self_mean - other_mean
-        R[:2,2] = t[:2]
+
+        T = np.eye(3)
+        T[:2,:2] = R
+        T[:2,2] = t
         
-        return Transform(R)
+        self.last_matched_distances = distances[distances <= MAX_DIST]
+        return Transform(T)
 
