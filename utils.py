@@ -145,9 +145,9 @@ class PointCloud:
                 dist = np.sum(xy**2)**0.5
                 print("angle", angle, "dist", dist)
 
-                if( np.abs(angle) > 0.8 or dist > 500):
+                if( np.abs(angle) > 0.8 or dist > 700):
                     print("sketchy")
-                    return None, Transform(np.eye(3))
+                    return None, transform
 
                 mean = np.mean(self.last_matched_distances)
                 d = self.last_matched_distances - mean
@@ -170,7 +170,7 @@ class PointCloud:
 
     def AlignSVD(self, other):
         # other is the one moving
-        MAX_DIST = 500
+        MAX_DIST = 400
 
         # keep around
         nbrs = NearestNeighbors(n_neighbors=1).fit(self.points)

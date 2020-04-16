@@ -71,6 +71,7 @@ class SLAM:
     def update_odom(self):
         dt = 0.1
         while self.running:
+            start = time.time()
             try:
                 da, dy = self.odom.get()['single']['odom']
             except timeout:
@@ -84,13 +85,14 @@ class SLAM:
                 self.odom_transform = t.combine(self.odom_transform)
                 self.ploted_robot.drive(t)
             self.viz.plot_Robot(self.ploted_robot, tag="ploted")
+            print("odom dt", time.time() - start)
 
-            time.sleep(dt)
+            sleep = max(0, dt - (time.time() - start) )
+            time.sleep(sleep)
                 
 
-    def close_keyframes(self):
-        MIN_DIST = 300
-        MAX_DIST = 800
+    def local_keyframes(self):
+        MAX_DIST = 600
         robot = self.robot.get_transform().get_components()[1]
 
         out = []
@@ -104,7 +106,7 @@ class SLAM:
 
 
     def update_lidar(self):
-        dt = 0.12
+        dt = 0.15
         while self.running:
             try:
                 scan = self.lidar.get()
@@ -131,7 +133,7 @@ class SLAM:
 
             self.viz.plot_PointCloud(pc, c="blue", tag="current")
 
-            keyframes = self.close_keyframes()
+            keyframes = self.local_keyframes()
 
             first = True
             for dist, node in keyframes:
@@ -141,14 +143,20 @@ class SLAM:
 
                 if cloud is None:
                     print("match failed")
+                    self.viz.plot_PointCloud(pc.move(transform), c="red", tag="failed")
                     continue
 
                 if first:
                     print("robot pos updated")
                     self.robot.move(transform)
+                    first = False
                     if dist < 500:
                         print("closest key frame happy")
                         break
+
+                if dist < 500:
+                    print("closest key frame happy")
+                    continue
 
                 print("new keyframe")
                 scan = pc.move(transform)
@@ -156,8 +164,6 @@ class SLAM:
                     idx = self.graph.number_of_nodes()
                     self.graph.add_node(idx, pc = scan, pose = self.robot.get_transform().copy())
                     self.graph.add_edge(idx, node)
-
-                first = False
 
 
             with self.odom_transfrom_lock:
