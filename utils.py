@@ -129,9 +129,9 @@ class PointCloud:
             angle, xy = aligment.get_components()
             dist = np.sum(xy**2)**0.5
 
-            if( np.abs(angle) > 0.4 or dist > 500 ):
-                print("early sketchy", itereation, angle, dist)
-                return None, transform
+            # if( np.abs(angle) > 0.4 or dist > 500 ):
+            #     print("early sketchy", itereation, angle, dist)
+            #     return None, transform
 
             transform = aligment.combine(transform)
             other = other.move(aligment)
@@ -158,7 +158,7 @@ class PointCloud:
                 #     skew = -99998765
 
                 print("skew", skew)
-                if( skew < 1):
+                if( skew < 2):
                     print("bad skew")
                     return None, Transform(np.eye(3))
 
