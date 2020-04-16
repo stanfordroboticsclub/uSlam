@@ -23,9 +23,8 @@ class SLAM:
         self.odom_transform = Transform.fromComponents(0)
         self.odom_transfrom_lock = threading.Lock()
 
-        self.keyframes = []
-        self.scan = None #most recent keyframe
-        self.lidar_scan = None
+        self.graph = nx.Graph()
+        self.graph_lock = threading.Lock()
 
         self.running = True
         self.threads = []
@@ -40,15 +39,29 @@ class SLAM:
 
     def update_viz(self):
         try:
-            self.viz.plot_Robot(self.ploted_robot)
-            self.viz.plot_Robot(self.robot, c="blue")
+            # self.viz.plot_Robot(self.ploted_robot, tag="ploted")
+            # self.viz.plot_Robot(self.robot, c="blue", tag="main")
 
-            if self.scan is not None:
-                self.viz.plot_PointCloud(self.scan)
-            if self.lidar_scan is not None:
-                self.viz.plot_PointCloud(self.lidar_scan, c="blue")
+            with self.graph_lock:
+                for node,data in self.graph.nodes.items():
+                    r = Robot()
+                    r.transform = data['pose'].copy()
+                    pc = data['pc'].copy()
+                    if(node not in self.viz.tags.keys()):
+                        self.viz.plot_PointCloud(pc, tag=str(pc)+str(node))
+                        self.viz.plot_Robot(r, tag=node, c="green")
+
+                for edge, data in self.graph.edges.items():
+                    t = str(edge[0])+"_"+str(edge[1])
+                    if t not in self.viz.tags:
+                        print("plooting edge", edge[0], edge[1])
+                        p1 = self.graph.nodes[edge[0]]['pose'].get_components()[1]
+                        p2 = self.graph.nodes[edge[1]]['pose'].get_components()[1]
+                        self.viz.plot_line(p1, p2, tag=t)
 
             self.running = all([thread.is_alive() for thread in self.threads])
+            if not self.running:
+                raise RuntimeError
         except:
             self.running = False
             raise
@@ -70,9 +83,24 @@ class SLAM:
             with self.odom_transfrom_lock:
                 self.odom_transform = t.combine(self.odom_transform)
                 self.ploted_robot.drive(t)
+            self.viz.plot_Robot(self.ploted_robot, tag="ploted")
 
             time.sleep(dt)
                 
+
+    def close_keyframes(self):
+        MIN_DIST = 300
+        MAX_DIST = 800
+        robot = self.robot.get_transform().get_components()[1]
+
+        out = []
+        for node,data in self.graph.nodes(data=True):
+            loc = data['pose'].get_components()[1]
+            distance = np.linalg.norm(robot - loc)
+            if distance < MAX_DIST:
+                out.append( (distance, node,) )
+
+        return sorted(out)
 
 
     def update_lidar(self):
@@ -89,30 +117,48 @@ class SLAM:
             # lidar in robot frame
             pc = pc.move(Transform.fromComponents(0, (-100,0) ))
             pc = pc.move( self.robot.get_transform() )
-            pc.location = self.robot.get_transform()
 
-            if len(self.keyframes) == 0:
-                self.keyframes.append(pc)
-                self.scan = pc
-                self.lidar_scan = pc.copy()
+            if self.graph.number_of_nodes() == 0:
+                if pc.points.shape[0] < 50:
+                    continue
+                # self.scan = pc
+                with self.graph_lock:
+                    self.graph.add_node(0, pc = pc.copy(), pose = self.robot.get_transform().copy())
+
+                # self.viz.plot_PointCloud(pc)
+                # self.viz.plot_Robot(self.robot, c="green")
                 continue
 
-            #hack for now
-            self.lidar_scan.points = pc.copy().points
-            cloud, transform = self.scan.fitICP(pc)
+            self.viz.plot_PointCloud(pc, c="blue", tag="current")
 
-            robot = self.robot.get_transform().get_components()[1]
-            scan  = self.scan.location.get_components()[1]
+            keyframes = self.close_keyframes()
 
-            if cloud is not None:
-                print("robot pos updated")
-                self.robot.move(transform)
+            first = True
+            for dist, node in keyframes:
+                print("mathcing node", node)
+                frame = self.graph.nodes[node]['pc']
+                cloud, transform = frame.fitICP(pc)
 
-                if np.linalg.norm(robot - scan) > 500:
-                    print("new keyframe")
-                    self.scan = pc.move(transform)
-                    self.scan.location = self.robot.get_transform()
-                    self.keyframes.append( self.scan )
+                if cloud is None:
+                    print("match failed")
+                    continue
+
+                if first:
+                    print("robot pos updated")
+                    self.robot.move(transform)
+                    if dist < 500:
+                        print("closest key frame happy")
+                        break
+
+                print("new keyframe")
+                scan = pc.move(transform)
+                with self.graph_lock:
+                    idx = self.graph.number_of_nodes()
+                    self.graph.add_node(idx, pc = scan, pose = self.robot.get_transform().copy())
+                    self.graph.add_edge(idx, node)
+
+                first = False
+
 
             with self.odom_transfrom_lock:
                 self.robot.drive(self.odom_transform)

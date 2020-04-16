@@ -2,6 +2,7 @@
 
 import tkinter as tk
 import time
+from collections import defaultdict
 
 def schedule(func):
     def replacement(self, *args, **kwargs):
@@ -16,24 +17,45 @@ class Vizualizer(tk.Tk):
 
         self.canvas = tk.Canvas(self,width=self.SIZE,height=self.SIZE)
         self.canvas.pack()
+
+        self.tags = defaultdict(list)
         
-    def delete(self, item):
-        if hasattr(item, "tkiner_canvas_ids"):
-            for obj in item.tkiner_canvas_ids:
-                self.canvas.delete(obj)
-        item.tkiner_canvas_ids = []
+    def delete(self, tag):
+        for obj in self.tags[tag]:
+            self.canvas.delete(obj)
+
+        del self.tags[tag]
 
     @schedule
-    def plot_PointCloud(self, pc, c='#000000'):
-        self.delete(pc)
+    def plot_line(self, p1, p2, tag = None):
+        if tag is not None:
+            self.delete(tag)
 
+        line = self.canvas.create_line(self.SIZE/2 + p1[0]/self.MM_PER_PIX,
+                           self.SIZE/2 - p1[1]/self.MM_PER_PIX,
+                           self.SIZE/2 + p2[0]/self.MM_PER_PIX,
+                           self.SIZE/2 - p2[1]/self.MM_PER_PIX)
+
+        if tag is not None:
+            self.tags[tag].append(line)
+
+    @schedule
+    def plot_PointCloud(self, pc, c='#000000', tag = None):
+        if tag is not None:
+            self.delete(tag)
+
+        objs = []
         for x, y,_ in pc.points:
             point = self.create_point(x, y, c=c)
-            pc.tkiner_canvas_ids.append(point)
+            objs.append(point)
+
+        if tag is not None:
+            self.tags[tag].extend(objs)
 
     @schedule
-    def plot_Robot(self, robot, c="#FF0000"):
-        self.delete(robot)
+    def plot_Robot(self, robot, c="#FF0000", tag = None):
+        if tag is not None:
+            self.delete(tag)
 
         pos, head = robot.get_pose()
         head *= 20
@@ -50,7 +72,9 @@ class Vizualizer(tk.Tk):
                                 self.SIZE/2-5 - pos[1]/self.MM_PER_PIX,
                                 fill = c)
 
-        robot.tkiner_canvas_ids = [oval, arrow]
+        if tag is not None:
+            self.tags[tag].extend([arrow, oval])
+
 
     def create_point(self,x,y, c = '#000000', w= 1):
         return self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,

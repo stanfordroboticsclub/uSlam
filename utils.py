@@ -158,7 +158,7 @@ class PointCloud:
                 #     skew = -99998765
 
                 print("skew", skew)
-                if( skew < 2):
+                if( skew < 1.5):
                     print("bad skew")
                     return None, Transform(np.eye(3))
 
@@ -170,7 +170,7 @@ class PointCloud:
 
     def AlignSVD(self, other):
         # other is the one moving
-        MAX_DIST = 300
+        MAX_DIST = 500
 
         # keep around
         nbrs = NearestNeighbors(n_neighbors=1).fit(self.points)
