@@ -145,7 +145,7 @@ class PointCloud:
                 dist = np.sum(xy**2)**0.5
                 print("angle", angle, "dist", dist)
 
-                if( np.abs(angle) > 0.8 or dist > 700):
+                if( np.abs(angle) > 0.8 or dist > 1700):
                     print("sketchy")
                     return None, transform
 

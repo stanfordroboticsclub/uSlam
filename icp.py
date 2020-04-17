@@ -85,14 +85,14 @@ class SLAM:
                 self.odom_transform = t.combine(self.odom_transform)
                 self.ploted_robot.drive(t)
             self.viz.plot_Robot(self.ploted_robot, tag="ploted")
-            print("odom dt", time.time() - start)
+            # print("odom dt", time.time() - start)
 
             sleep = max(0, dt - (time.time() - start) )
             time.sleep(sleep)
                 
 
     def local_keyframes(self):
-        MAX_DIST = 600
+        MAX_DIST = 800
         robot = self.robot.get_transform().get_components()[1]
 
         out = []
@@ -106,12 +106,16 @@ class SLAM:
 
 
     def update_lidar(self):
-        dt = 0.15
+        dt = 0.1
         while self.running:
+            start = time.time()
             try:
                 scan = self.lidar.get()
             except timeout:
                 # print("lidar timeout")
+                continue
+
+            if len(scan) < 50:
                 continue
 
             pc = PointCloud.fromScan(scan)
@@ -150,11 +154,11 @@ class SLAM:
                     print("robot pos updated")
                     self.robot.move(transform)
                     first = False
-                    if dist < 500:
+                    if dist < 400:
                         print("closest key frame happy")
                         break
 
-                if dist < 500:
+                if dist < 400:
                     print("closest key frame happy")
                     continue
 
@@ -171,6 +175,7 @@ class SLAM:
                 self.odom_transform = Transform.fromComponents(0)
                 self.ploted_robot.transform = self.robot.get_transform().copy()
 
+            print("lidar dt", time.time() - start)
             time.sleep(dt)
 
 
