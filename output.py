@@ -40,7 +40,8 @@ class Vizualizer(tk.Tk):
             self.tags[tag].append(line)
 
     @schedule
-    def plot_PointCloud(self, pc, c='#000000', tag = None):
+    def plot_PointCloud(self, pc, c='systemTextColor', tag = None):
+        # systemTextColor is white on a darkmode system and black otherwise
         if tag is not None:
             self.delete(tag)
 
@@ -76,7 +77,7 @@ class Vizualizer(tk.Tk):
             self.tags[tag].extend([arrow, oval])
 
 
-    def create_point(self,x,y, c = '#000000', w= 1):
+    def create_point(self,x,y, c = 'systemTextColor', w= 1):
         return self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,
                                 self.SIZE/2 - y/self.MM_PER_PIX,
                                 self.SIZE/2 + x/self.MM_PER_PIX,
