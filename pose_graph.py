@@ -1,6 +1,14 @@
 
 
 
+# NODE has:
+    # ID
+    # Pose
+    # PC
+
+# EDGE has:
+    # ID pair
+    # Transform
 
 class PoseGraph:
     pass
@@ -10,8 +18,13 @@ class PoseGraph:
         self.nodes = []
         self.edge = []
 
-    def add_edge(self, nodeA, nodeB):
+        self.graph = nx.Graph()
+
+    def add_node(self, node, links):
         pass
 
-    def add_node(self, node):
+    def get_nearby_poses(self, location, distance):
         pass
+
+
+
