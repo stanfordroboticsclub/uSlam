@@ -8,6 +8,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("filename")
 args = parser.parse_args()
 
+
+# mac has a weird thing with a limmited MTU size. For long messages you need to increase it
+# using methods from here. Still figuring out a nice way for this
+# https://stackoverflow.com/questions/22819214/udp-message-too-long
+# http://www.hackaapl.com/mazimum-transmission-unit-mtu-frame-size-in-os-x/
+
+
 publishers = {}
 
 start_time = time.monotonic()
