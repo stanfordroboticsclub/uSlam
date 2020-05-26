@@ -13,6 +13,8 @@ args = parser.parse_args()
 # using methods from here. Still figuring out a nice way for this
 # https://stackoverflow.com/questions/22819214/udp-message-too-long
 # http://www.hackaapl.com/mazimum-transmission-unit-mtu-frame-size-in-os-x/
+# sudo sysctl -w net.inet.udp.maxdgram=65535
+# sudo ifconfig feth1571 mtu 9000
 
 
 publishers = {}
