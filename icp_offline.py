@@ -17,8 +17,9 @@ with open("data/upstairs.txt") as f:
         pc = PointCloud.fromScan(scan)
         pcs.append(pc)
 
-pcs = pcs[40:80]
-print("loaded {} scans", len(pcs))
+pcs = pcs[40:78]
+# pcs = pcs[40:60]
+print(f"loaded {len(pcs)} scans")
 
 output     = [ [None]*len(pcs) for _ in range(len(pcs))]
 transforms = [ [None]*len(pcs) for _ in range(len(pcs))]
@@ -68,6 +69,7 @@ def update():
     axs[0,1].matshow(tmp)
     fig.canvas.draw()
 
+# print(output)
 
 window = 10
 fig, axs = plt.subplots(2, 2 ,figsize=(window,window))
@@ -96,7 +98,7 @@ def hover(event):
 fig.canvas.mpl_connect("button_press_event", hover)
 
 plt.ion()
-plt.show()
+plt.show(block=True)
 
 
 
