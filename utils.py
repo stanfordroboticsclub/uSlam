@@ -6,6 +6,13 @@ class Transform:
         self.matrix = matrix
 
     @classmethod
+    def fromJSON(cls, list):
+        return cls(np.array(list))
+
+    def saveJSON(self):
+        return self.matrix.tolist()
+
+    @classmethod
     def fromOdometry(cls, angle, xy):
         matrix = np.eye(3)
         matrix[0,0] = np.cos(angle); matrix[0,1] =-np.sin(angle)
@@ -73,6 +80,13 @@ class Robot:
 class PointCloud:
     def __init__(self, array):
         self.points = array
+
+    @classmethod
+    def fromJSON(cls, list):
+        return cls(np.array(list))
+
+    def saveJSON(self):
+        return self.points.tolist()
 
     def copy(self):
         return PointCloud(self.points.copy())
