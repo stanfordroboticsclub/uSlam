@@ -26,11 +26,8 @@ graph.add_edge(3, 0, measure = Transform.fromComponents(0, xy = (-1,0) ))
 
 
 def get_rot_matirx(A):
-
     u, s, vt = np.linalg.svd(A, full_matrices=False)
-
     return u @ vt
-
 
 def rank2_approx(A):
     n = A.shape[0]//3

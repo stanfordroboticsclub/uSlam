@@ -27,12 +27,14 @@ class PoseGraph:
         output["nodes"] = {}
         for node, pose, pc in self.get_nodes():
 
-            output["nodes"][node] = {"pose": pose.toJSON() ,
-                                     "pc": pc.toJSON() , "edges": {}}
+            json_pose = None if pose is None else pose.toJSON() 
+            json_pc = None if pc is None else pc.toJSON() 
+            output["nodes"][node] = {"pose":  json_pose,
+                                     "pc": json_pc , "edges": {}}
 
         output["edges"] = {}
-        for (x,y), transform in self.edges():
-            output["nodes"][x]["edges"][y] = {"tranform": transform.toJSON() }
+        for (x,y), transform in self.get_edges():
+            output["nodes"][x]["edges"][y] = {"transform": transform.toJSON() }
 
         with open(filename, "w") as f:
             f.write(json.dumps(output))
@@ -49,7 +51,7 @@ class PoseGraph:
 
         for node,data in output['nodes'].items():
             for target,data in data['edges'].items():
-                graph.add_edge(node, target, transform =  Transform.fromJSON(data['tranform']))
+                graph.add_edge(node, target, transform =  Transform.fromJSON(data['transform']))
 
         return cls(graph)
 
@@ -57,9 +59,9 @@ class PoseGraph:
         for node,data in self.graph.nodes(data=True):
             yield node, data['pose'], data['pc']
 
-    def get_edge(self):
+    def get_edges(self):
         for edge, data in self.graph.edges.items():
-            yield edge, data['tranform']
+            yield edge, data['transform']
 
     # def initialize(self, point_cloud):
     #     self.graph.

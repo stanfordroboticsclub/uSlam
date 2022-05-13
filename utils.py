@@ -5,11 +5,17 @@ class Transform:
     def __init__(self, matrix):
         self.matrix = matrix
 
+    def __repr__(self) -> str:
+        angle, (x,y) =  self.get_components()
+        return f"Transform({angle}, ({x},{y}))"
+
     @classmethod
     def fromJSON(cls, list):
+        if list == None:
+            return None
         return cls(np.array(list))
 
-    def saveJSON(self):
+    def toJSON(self):
         return self.matrix.tolist()
 
     @classmethod
@@ -87,7 +93,7 @@ class PointCloud:
             return None
         return cls(np.array(list))
 
-    def saveJSON(self):
+    def toJSON(self):
         return self.points.tolist()
 
     def copy(self):
