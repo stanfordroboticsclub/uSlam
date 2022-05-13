@@ -94,6 +94,17 @@ class PoseGraph:
     def optimize(self):
         pass
 
+    def plot(self, viz):
+        for node, pose, pc in self.get_nodes():
+            viz.plot_Pose(pose)
+
+        for (x,y), transform in self.get_edges():
+            p1 = self.graph.nodes[x]['pose'].get_components()[1]
+            p2 = self.graph.nodes[y]['pose'].get_components()[1]
+            print("ploting", p1, p2)
+            viz.plot_line(p1, p2)
+
+
 if __name__ == "__main__":
     a = PoseGraph()
 

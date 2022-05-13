@@ -9,6 +9,14 @@ class Transform:
         angle, (x,y) =  self.get_components()
         return f"Transform({angle}, ({x},{y}))"
 
+    def get_arrow(self):
+        pos = np.array([0,0,1])
+        head = np.array([0,1,1])
+
+        pos  = self.matrix @ pos
+        head = self.matrix @ head - pos
+        return (pos[:2], head[:2])
+
     @classmethod
     def fromJSON(cls, list):
         if list == None:
@@ -70,6 +78,7 @@ class Robot:
         return self.transform
 
     def get_pose(self):
+        #TODO delete use transform.get_arrow
         pos = np.array([0,0,1])
         head = np.array([0,1,1])
 

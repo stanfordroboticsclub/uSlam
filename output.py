@@ -76,6 +76,28 @@ class Vizualizer(tk.Tk):
         if tag is not None:
             self.tags[tag].extend([arrow, oval])
 
+    @schedule
+    def plot_Pose(self, pose, c="#FF0000", tag = None):
+        if tag is not None:
+            self.delete(tag)
+
+        pos, head = pose.get_arrow()
+        head *= 20
+
+        arrow = self.canvas.create_line(self.SIZE/2 + pos[0]/self.MM_PER_PIX,
+                           self.SIZE/2 - pos[1]/self.MM_PER_PIX,
+                           self.SIZE/2 + pos[0]/self.MM_PER_PIX + head[0],
+                           self.SIZE/2 - pos[1]/self.MM_PER_PIX - head[1],
+                           arrow=tk.LAST)
+
+        oval = self.canvas.create_oval(self.SIZE/2+5 + pos[0]/self.MM_PER_PIX, 
+                                self.SIZE/2+5 - pos[1]/self.MM_PER_PIX,
+                                self.SIZE/2-5 + pos[0]/self.MM_PER_PIX,
+                                self.SIZE/2-5 - pos[1]/self.MM_PER_PIX,
+                                fill = c)
+
+        if tag is not None:
+            self.tags[tag].extend([arrow, oval])
 
     def create_point(self,x,y, c = 'systemTextColor', w= 1):
         return self.canvas.create_oval(self.SIZE/2 + x/self.MM_PER_PIX,

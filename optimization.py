@@ -4,25 +4,22 @@ import networkx as nx
 import cvxpy as cp
 import numpy as np
 
-
-# np.get_printoptions()['linewidth']
-np.set_printoptions(linewidth=160)
-np.set_printoptions(linewidth=500)
+from pose_graph import PoseGraph
+from output import Vizualizer
 
 
-graph = nx.Graph()
+# graph = nx.Graph()
+
+# graph.add_node(0)
+# graph.add_node(1)
+# graph.add_node(2)
+# graph.add_node(3)
 
 
-graph.add_node(0)
-graph.add_node(1)
-graph.add_node(2)
-graph.add_node(3)
-
-
-graph.add_edge(0, 1, measure = Transform.fromComponents(0, xy = (0,1) ))
-graph.add_edge(1, 2, measure = Transform.fromComponents(0, xy = (1,0) ))
-graph.add_edge(2, 3, measure = Transform.fromComponents(0, xy = (0,-1) ))
-graph.add_edge(3, 0, measure = Transform.fromComponents(0, xy = (-1,0) ))
+# graph.add_edge(0, 1, measure = Transform.fromComponents(0, xy = (0,1) ))
+# graph.add_edge(1, 2, measure = Transform.fromComponents(0, xy = (1,0) ))
+# graph.add_edge(2, 3, measure = Transform.fromComponents(0, xy = (0,-1) ))
+# graph.add_edge(3, 0, measure = Transform.fromComponents(0, xy = (-1,0) ))
 
 
 def get_rot_matirx(A):
@@ -84,7 +81,9 @@ def rank2_approx(A):
 
     return transforms
 
-def solve_pose_graph(graph):
+def solve_pose_graph(pg, hold_steady=None):
+
+    graph = pg.graph
 
     n = graph.number_of_nodes()
 
@@ -99,7 +98,7 @@ def solve_pose_graph(graph):
     cost = 0
     for edge, data in graph.edges.items():
         i, j = edge
-        angle, t_ij = data['measure'].get_components()
+        angle, t_ij = data['transform'].get_components()
 
         R_ij = np.eye(2)
         R_ij[0,0] = np.cos(angle); R_ij[0,1] =-np.sin(angle)
@@ -123,10 +122,41 @@ def solve_pose_graph(graph):
     prob = cp.Problem(cp.Minimize(cost), constraints )
     prob.solve()
 
-    rank2_approx(X.value)
+    transforms = rank2_approx(X.value)
+
+    for i,pose in enumerate(transforms):
+        graph.nodes[i]['pose'] = Transform(pose)
 
 
-solve_pose_graph(graph)
+
+# np.get_printoptions()['linewidth']
+np.set_printoptions(linewidth=160)
+np.set_printoptions(linewidth=500)
+
+pg = PoseGraph()
+
+pg.new_node()
+pg.new_node()
+pg.new_node()
+pg.new_node()
+
+pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (0,1) ))
+pg.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (1,0) ))
+pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = (0,-1) ))
+pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (-1,0) ))
+
+
+solve_pose_graph(pg)
+
+# pg = PoseGraph.load("test.json")
+pg.save("test.json")
+
+viz = Vizualizer(mm_per_pix= 1/300 )
+
+pg.plot(viz)
+
+viz.mainloop()
+
 
 
 
