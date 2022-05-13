@@ -83,6 +83,8 @@ class PointCloud:
 
     @classmethod
     def fromJSON(cls, list):
+        if list == None:
+            return None
         return cls(np.array(list))
 
     def saveJSON(self):

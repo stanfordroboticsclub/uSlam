@@ -23,7 +23,7 @@ class SLAM:
         self.odom_transform = Transform.fromComponents(0)
         self.odom_transfrom_lock = threading.Lock()
 
-        self.graph = nx.Graph()
+        self.graph = nx.DiGraph()
         self.graph_lock = threading.Lock()
 
         self.running = True

@@ -26,7 +26,9 @@ class PoseGraph:
         output = {}
         output["nodes"] = {}
         for node, pose, pc in self.get_nodes():
-            output["nodes"][node] = {"pose": pose.toJSON() , "pc": pc.toJSON() , "edges": {}}
+
+            output["nodes"][node] = {"pose": pose.toJSON() ,
+                                     "pc": pc.toJSON() , "edges": {}}
 
         output["edges"] = {}
         for (x,y), transform in self.edges():
@@ -55,20 +57,25 @@ class PoseGraph:
         for node,data in self.graph.nodes(data=True):
             yield node, data['pose'], data['pc']
 
-    def get_edge(self.):
+    def get_edge(self):
         for edge, data in self.graph.edges.items():
             yield edge, data['tranform']
 
     # def initialize(self, point_cloud):
     #     self.graph.
 
-    def new_node(self, node, scan = None, pose=None, links = None ):
+    def new_node(self, scan = None, pose=None, links = None ):
         idx = self.graph.number_of_nodes()
         self.graph.add_node(idx, pc = scan, pose = pose)
 
         if links != None:
             for node, relative_transform in links.items():
-                self.graph.add_edge(idx, node, transform = relative_transform)
+                self.add_edge(idx, node, relative_transform)
+
+        return idx
+
+    def add_edge(self, source, target, transform):
+        self.graph.add_edge(source, target, transform = transform)
 
     def get_nearby_poses(self, location, max_distance):
         robot = location.get_components()[1]
@@ -85,5 +92,18 @@ class PoseGraph:
     def optimize(self):
         pass
 
+if __name__ == "__main__":
+    a = PoseGraph()
 
+    a.new_node()
+    a.new_node()
+    a.new_node()
+    a.new_node()
+
+    a.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (0,1) ))
+    a.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (1,0) ))
+    a.add_edge(2, 3, transform = Transform.fromComponents(0, xy = (0,-1) ))
+    a.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (-1,0) ))
+
+    a.save("test.json")
 
