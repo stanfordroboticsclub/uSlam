@@ -177,7 +177,9 @@ class SLAM:
                     idx = self.graph.number_of_nodes()
                     #TODO pc vs scan
                     self.graph.add_node(idx, pc = scan, raw_pc = raw_pc, pose = self.robot.get_transform().copy())
-                    self.graph.add_edge(idx, node, transform=transform)
+                    # ????
+                    edge_transfrom = self.robot.get_transform().copy().combine(self.graph.nodes[node]['pose'].inv())
+                    self.graph.add_edge(idx, node, transform=edge_transfrom)
 
 
             with self.odom_transfrom_lock:

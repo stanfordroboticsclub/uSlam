@@ -168,7 +168,7 @@ def load():
     viz = Vizualizer()
     pg = PoseGraph.load("output.json")
     print(pg)
-    # solve_pose_graph(pg)
+    solve_pose_graph(pg)
 
     pg.plot(viz, plot_pc=True)
     viz.mainloop()
