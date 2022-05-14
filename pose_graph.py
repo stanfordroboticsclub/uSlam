@@ -46,17 +46,20 @@ class PoseGraph:
         graph = nx.DiGraph()
 
         for node,data in output['nodes'].items():
-            graph.add_node(node, pc = PointCloud.fromJSON(data['pc']), pose = Transform.fromJSON(data['pose']))
+            graph.add_node(int(node), pc = PointCloud.fromJSON(data['pc']), pose = Transform.fromJSON(data['pose']))
 
         for node,data in output['nodes'].items():
             for target,data in data['edges'].items():
-                graph.add_edge(node, target, transform =  Transform.fromJSON(data['transform']))
+                graph.add_edge(int(node), int(target), transform =  Transform.fromJSON(data['transform']))
 
         return cls(graph)
 
     def get_nodes(self):
         for node,data in self.graph.nodes(data=True):
-            yield node, data['pose'], data['local_pc'] # TODO rel_pc vs pc
+            if "raw_pc" in data:
+                yield node, data['pose'], data['raw_pc'] # TODO raw_pc vs pc
+            else:
+                yield node, data['pose'], data['pc'] # TODO raw_pc vs pc
 
     def get_edges(self):
         for edge, data in self.graph.edges.items():

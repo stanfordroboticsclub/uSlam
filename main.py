@@ -129,6 +129,8 @@ class SLAM:
 
             # lidar in robot frame
             pc = pc.move(Transform.fromComponents(0, (-100,0) ))
+
+            raw_pc = pc.copy()
             pc = pc.move( self.robot.get_transform() )
 
             if self.graph.number_of_nodes() == 0:
@@ -174,7 +176,7 @@ class SLAM:
                 with self.graph_lock:
                     idx = self.graph.number_of_nodes()
                     #TODO pc vs scan
-                    self.graph.add_node(idx, pc = scan, local_pc = pc, pose = self.robot.get_transform().copy())
+                    self.graph.add_node(idx, pc = scan, raw_pc = raw_pc, pose = self.robot.get_transform().copy())
                     self.graph.add_edge(idx, node, transform=transform)
 
 

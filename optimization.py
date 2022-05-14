@@ -167,9 +167,10 @@ def simple_test():
 def load():
     viz = Vizualizer()
     pg = PoseGraph.load("output.json")
-    solve_pose_graph(pg)
+    print(pg)
+    # solve_pose_graph(pg)
 
-    pg.plot(viz)
+    pg.plot(viz, plot_pc=True)
     viz.mainloop()
 
 if __name__ == "__main__":
