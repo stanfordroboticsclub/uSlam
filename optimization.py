@@ -133,29 +133,49 @@ def solve_pose_graph(pg, hold_steady=None):
 np.set_printoptions(linewidth=160)
 np.set_printoptions(linewidth=500)
 
-pg = PoseGraph()
 
-pg.new_node()
-pg.new_node()
-pg.new_node()
-pg.new_node()
+def simple_test():
+    pg = PoseGraph()
 
-pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (0,1) ))
-pg.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (1,0) ))
-pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = (0,-1) ))
-pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (-1,0) ))
+    pg.new_node()
+    pg.new_node()
+    pg.new_node()
+    pg.new_node()
+    pg.new_node()
+    pg.new_node()
+
+    a = lambda:np.random.normal(scale=0)
+    p = lambda:np.random.normal(scale=0.1)
+
+    pg.add_edge(0, 1, transform = Transform.fromComponents(a(), xy = ( 0 + p(), 1 + p()) ))
+    pg.add_edge(1, 2, transform = Transform.fromComponents(a(), xy = ( 1 + p(), 0 + p()) ))
+    pg.add_edge(2, 3, transform = Transform.fromComponents(a(), xy = ( 0 + p(),-1 + p()) ))
+    pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-1 + p(), 0 + p()) ))
+
+    pg.add_edge(1, 4, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
+    pg.add_edge(2, 5, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
+    pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-1 + p()) ))
 
 
-solve_pose_graph(pg)
+    solve_pose_graph(pg)
 
-# pg = PoseGraph.load("test.json")
-pg.save("test.json")
+    # pg = PoseGraph.load("test.json")
+    pg.save("test.json")
+    viz = Vizualizer(mm_per_pix= 1/100 )
+    viz.mainloop()
 
-viz = Vizualizer(mm_per_pix= 1/300 )
+def load():
+    viz = Vizualizer()
+    pg = PoseGraph.load("output.json")
+    solve_pose_graph(pg)
 
-pg.plot(viz)
+    pg.plot(viz)
+    viz.mainloop()
 
-viz.mainloop()
+if __name__ == "__main__":
+    load()
+
+
 
 
 

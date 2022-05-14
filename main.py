@@ -7,6 +7,7 @@ from UDPComms import Subscriber,timeout
 
 from utils import Transform, Robot, PointCloud
 from output import Vizualizer
+from pose_graph import PoseGraph
 
 
 class SLAM:
@@ -34,8 +35,14 @@ class SLAM:
             thread.start()
 
         self.viz.after(100,self.update_viz)
+        self.viz.protocol("WM_DELETE_WINDOW", self.quit)
         self.viz.mainloop()
 
+    def quit(self):
+        pg = PoseGraph(self.graph)
+        pg.save("output.json")
+        print("quitting")
+        self.viz.destroy()
 
     def update_viz(self):
         try:
@@ -129,7 +136,7 @@ class SLAM:
                     continue
                 # self.scan = pc
                 with self.graph_lock:
-                    self.graph.add_node(0, pc = pc.copy(), pose = self.robot.get_transform().copy())
+                    self.graph.add_node(0, pc = pc.copy(), local_pc = pc.copy(), pose = self.robot.get_transform().copy())
 
                 # self.viz.plot_PointCloud(pc)
                 # self.viz.plot_Robot(self.robot, c="green")
@@ -166,8 +173,9 @@ class SLAM:
                 scan = pc.move(transform)
                 with self.graph_lock:
                     idx = self.graph.number_of_nodes()
-                    self.graph.add_node(idx, pc = scan, pose = self.robot.get_transform().copy())
-                    self.graph.add_edge(idx, node)
+                    #TODO pc vs scan
+                    self.graph.add_node(idx, pc = scan, local_pc = pc, pose = self.robot.get_transform().copy())
+                    self.graph.add_edge(idx, node, transform=transform)
 
 
             with self.odom_transfrom_lock:

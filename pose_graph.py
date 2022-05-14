@@ -26,7 +26,6 @@ class PoseGraph:
         output = {}
         output["nodes"] = {}
         for node, pose, pc in self.get_nodes():
-
             json_pose = None if pose is None else pose.toJSON() 
             json_pc = None if pc is None else pc.toJSON() 
             output["nodes"][node] = {"pose":  json_pose,
@@ -57,7 +56,7 @@ class PoseGraph:
 
     def get_nodes(self):
         for node,data in self.graph.nodes(data=True):
-            yield node, data['pose'], data['pc']
+            yield node, data['pose'], data['local_pc'] # TODO rel_pc vs pc
 
     def get_edges(self):
         for edge, data in self.graph.edges.items():
@@ -94,9 +93,12 @@ class PoseGraph:
     def optimize(self):
         pass
 
-    def plot(self, viz):
+    def plot(self, viz, plot_pc = False):
         for node, pose, pc in self.get_nodes():
             viz.plot_Pose(pose)
+            if plot_pc:
+                global_pc = pc.move(pose)
+                viz.plot_PointCloud(global_pc)
 
         for (x,y), transform in self.get_edges():
             p1 = self.graph.nodes[x]['pose'].get_components()[1]
