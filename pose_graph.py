@@ -64,18 +64,28 @@ class PoseGraph:
         for edge, data in self.graph.edges.items():
             yield edge, data['transform']
 
-    # def initialize(self, point_cloud):
-    #     self.graph.
+    def poses_to_pc(self):
+        for node,data in self.graph.nodes(data=True):
+            if self.graph.nodes[node]["pc"] != None:
+                self.graph.nodes[node]["pc"].pose = data['pose']
 
-    def new_node(self, scan = None, pose=None, links = None ):
+    def new_node(self, pc = None, pose=None, links = None ):
         idx = self.graph.number_of_nodes()
-        self.graph.add_node(idx, pc = scan, pose = pose)
+        self.graph.add_node(idx, pc = pc, pose = pose)
 
         if links != None:
             for node, relative_transform in links.items():
                 self.add_edge(idx, node, relative_transform)
 
         return idx
+
+    def __repr__(self):
+        out = ["PoseGraph:"]
+        for node, pose, pc in self.get_nodes():
+            out.append("    " + pose.__repr__())
+
+        return "\n".join(out)
+
 
     def add_edge(self, source, target, transform):
         self.graph.add_edge(source, target, transform = transform)
@@ -96,11 +106,18 @@ class PoseGraph:
         pass
 
     def plot(self, viz, plot_pc = False):
+        self.poses_to_pc()
+
+        colors = ["#348ABD", "#A60628", "#7A68A6", "#467821", "#CF4457", "#188487", "#E24A33" ]
+
+        i = 0
         for node, pose, pc in self.get_nodes():
-            viz.plot_Pose(pose)
+            viz.plot_Pose(pose, c=colors[i])
             if plot_pc:
-                global_pc = pc.move(pose)
-                viz.plot_PointCloud(global_pc)
+                global_pc = pc.global_frame()
+                viz.plot_PointCloud(global_pc, c=colors[i])
+
+            i += 1
 
         for (x,y), transform in self.get_edges():
             p1 = self.graph.nodes[x]['pose'].get_components()[1]

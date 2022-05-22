@@ -76,6 +76,8 @@ def rank2_approx(A):
         Q = np.eye(3)
         Q[:2, :2] = global_rot @ Rots[i]
         Q[:2, -1] = global_rot @ ts[:, i]
+        # Q[:2, :2] = Rots[i]
+        # Q[:2, -1] = ts[:, i]
         transforms.append(Q)
         print(Q)
 
@@ -99,7 +101,14 @@ def solve_pose_graph(pg, hold_steady=None):
     for edge, data in graph.edges.items():
         i, j = edge
         # j, i = edge
+        # angle, t_ij = data['transform'].inv().get_components()
         angle, t_ij = data['transform'].get_components()
+
+        print(f"edge {i} -> {j}, angle={angle}, t={t_ij}")
+        # new = graph.nodes[j]['pose'].combine( graph.nodes[i]['pose'].inv() )
+        # new_angle, new_t_ij = new.get_components()
+        # print(f"calc {i} -> {j}, angle={new_angle}, t={new_t_ij}")
+        print()
 
         R_ij = np.eye(2)
         R_ij[0,0] = np.cos(angle); R_ij[0,1] =-np.sin(angle)
@@ -121,12 +130,15 @@ def solve_pose_graph(pg, hold_steady=None):
         constraints.append( X_RR(i,i) == np.eye(2) )
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
+    # prob.solve(verbose=True)
     prob.solve()
 
     transforms = rank2_approx(X.value)
 
     for i,pose in enumerate(transforms):
         graph.nodes[i]['pose'] = Transform(pose)
+        if graph.nodes[i]["pc"] != None:
+            graph.nodes[i]['pc'].pose = Transform(pose)
 
 
 
@@ -142,8 +154,8 @@ def simple_test():
     pg.new_node()
     pg.new_node()
     pg.new_node()
-    pg.new_node()
-    pg.new_node()
+    # pg.new_node()
+    # pg.new_node()
 
     a = lambda:np.random.normal(scale=0)
     p = lambda:np.random.normal(scale=0.1)
@@ -151,11 +163,11 @@ def simple_test():
     pg.add_edge(0, 1, transform = Transform.fromComponents(a(), xy = ( 0 + p(), 1 + p()) ))
     pg.add_edge(1, 2, transform = Transform.fromComponents(a(), xy = ( 1 + p(), 0 + p()) ))
     pg.add_edge(2, 3, transform = Transform.fromComponents(a(), xy = ( 0 + p(),-1 + p()) ))
-    pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-1 + p(), 0 + p()) ))
+    # pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-1 + p(), 0 + p()) ))
 
-    pg.add_edge(1, 4, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
-    pg.add_edge(2, 5, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
-    pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-1 + p()) ))
+    # pg.add_edge(1, 4, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
+    # pg.add_edge(2, 5, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
+    # pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-1 + p()) ))
 
 
     solve_pose_graph(pg)
@@ -163,18 +175,27 @@ def simple_test():
     # pg = PoseGraph.load("test.json")
     pg.save("test.json")
     viz = Vizualizer(mm_per_pix= 1/100 )
+    pg.plot(viz, plot_pc=False)
     viz.mainloop()
 
 def load():
     viz = Vizualizer()
-    pg = PoseGraph.load("output.json")
+    pg = PoseGraph.load("t.json")
+
+
+    for i in range(pg.graph.number_of_nodes()):
+        if i not in [0,1]:
+            pg.graph.remove_node(i)
+
     print(pg)
     solve_pose_graph(pg)
+    print(pg)
 
     pg.plot(viz, plot_pc=True)
     viz.mainloop()
 
 if __name__ == "__main__":
+    # simple_test()
     load()
 
 
