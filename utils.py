@@ -32,7 +32,6 @@ class Transform:
         matrix[0,0] = np.cos(angle); matrix[0,1] =-np.sin(angle)
         matrix[1,0] = np.sin(angle); matrix[1,1] = np.cos(angle)
         matrix[:2,2] = xy
-        # matrix[2,:2] = xy # TODO make this into standard
 
         return cls(matrix)
 
