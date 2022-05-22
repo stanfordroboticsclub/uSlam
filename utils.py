@@ -36,6 +36,10 @@ class Transform:
         return cls(matrix)
 
     @classmethod
+    def Identity(cls):
+        return cls.fromComponents(0,(0,0))
+
+    @classmethod
     def fromComponents(cls, angle, xy = None):
         if xy == None:
             xy = np.zeros((2))
@@ -93,8 +97,11 @@ class Robot:
         self.transform = other.transform.copy()
 
 class PointCloud:
-    def __init__(self, array):
+    def __init__(self, array, pose = None):
         self.points = array
+        if pose == None:
+            pose = Transform.Identity()
+        self.pose = pose
 
     @classmethod
     def fromJSON(cls, list):
@@ -106,7 +113,7 @@ class PointCloud:
         return self.points.tolist()
 
     def copy(self):
-        return PointCloud(self.points.copy())
+        return PointCloud(self.points.copy(), self.pose.copy())
 
     def replace(self, other):
         self.points = other.points
@@ -120,10 +127,13 @@ class PointCloud:
         array = np.stack([dists*np.sin(angles), dists*np.cos(angles), np.ones(angles.shape)], axis=-1)
         return cls( array )
 
-    def move(self, tranform):
-        # print("matrix", tranform.matrix.shape)
+    def move(self, transform):
+        # print("matrix", transform.matrix.shape)
         # print("self", self.points.shape)
-        return PointCloud( (tranform.matrix @ self.points.T).T )
+        return PointCloud( (transform.matrix @ self.points.T).T )
+
+    def global_frame(self):
+        return self.move(self.pose)
 
     def extend(self, other):
         MIN_DIST = 100
@@ -150,38 +160,42 @@ class PointCloud:
 
     def fitICP(self, other):
         # TODO: better way of terminating
-        transform = Transform.fromComponents(0)
+        offset = Transform.Identity()
+
+        global_self  = self.global_frame()
+        global_other = other.global_frame()
+
         for itereation in range(50):
 
-            aligment = self.AlignSVD(other)
+            aligment = global_self.AlignSVD(global_other)
             if aligment is None:
-                return None, transform
+                return None, offset
 
             angle, xy = aligment.get_components()
             dist = np.sum(xy**2)**0.5
 
             # if( np.abs(angle) > 0.4 or dist > 500 ):
             #     print("early sketchy", itereation, angle, dist)
-            #     return None, transform
+            #     return None, offset
 
-            transform = aligment.combine(transform)
-            other = other.move(aligment)
+            offset = aligment.combine(offset)
+            global_other = global_other.move(aligment)
 
             if( angle < 0.001 and dist < 1 ):
 
-                # self.last_matched_distances
+                # global_self.last_matched_distances
 
                 print("done at itereation", itereation)
-                angle, xy = transform.get_components()
+                angle, xy = offset.get_components()
                 dist = np.sum(xy**2)**0.5
                 print("angle", angle, "dist", dist)
 
                 if( np.abs(angle) > 0.8 or dist > 1700):
                     print("sketchy")
-                    return None, transform
+                    return None, offset
 
-                mean = np.mean(self.last_matched_distances)
-                d = self.last_matched_distances - mean
+                mean = np.mean(global_self.last_matched_distances)
+                d = global_self.last_matched_distances - mean
                 std = np.sqrt(np.mean(d**2))
                 # if std != 0:
                 skew = np.mean(d**3)/std**3
@@ -191,12 +205,14 @@ class PointCloud:
                 print("skew", skew)
                 if( skew < 1.5):
                     print("bad skew")
-                    return None, Transform(np.eye(3))
+                    return None, Transform.Identity()
 
-                return other, transform
+                other.pose = offset.combine(other.pose)
+                # returns corrected other (with corrected transform), and the correcting transform
+                return other, offset
         else:
             print("convergence failure!")
-            return None, transform
+            return None, offset
 
 
     def AlignSVD(self, other):

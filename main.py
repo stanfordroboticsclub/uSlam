@@ -129,16 +129,17 @@ class SLAM:
 
             # lidar in robot frame
             pc = pc.move(Transform.fromComponents(0, (-100,0) ))
+            pc.pose = self.robot.get_transform()
 
-            raw_pc = pc.copy()
-            pc = pc.move( self.robot.get_transform() )
+            # raw_pc = pc.copy()
+            # pc = pc.move( self.robot.get_transform() )
 
             if self.graph.number_of_nodes() == 0:
                 if pc.points.shape[0] < 50:
                     continue
                 # self.scan = pc
                 with self.graph_lock:
-                    self.graph.add_node(0, pc = pc.copy(), local_pc = pc.copy(), pose = self.robot.get_transform().copy())
+                    self.graph.add_node(0, pc = pc.copy(),  pose = pc.pose.copy() )
 
                 # self.viz.plot_PointCloud(pc)
                 # self.viz.plot_Robot(self.robot, c="green")
@@ -155,7 +156,7 @@ class SLAM:
                 cloud, transform = frame.fitICP(pc)
 
                 if cloud is None:
-                    print("match failed")
+                    print("match failed") #TODO
                     self.viz.plot_PointCloud(pc.move(transform), c="red", tag="failed")
                     continue
 
@@ -172,14 +173,16 @@ class SLAM:
                     continue
 
                 print("new keyframe")
-                scan = pc.move(transform)
+                # scan = pc.move(transform)
                 with self.graph_lock:
                     idx = self.graph.number_of_nodes()
                     #TODO pc vs scan
-                    self.graph.add_node(idx, pc = scan, raw_pc = raw_pc, pose = self.robot.get_transform().copy())
+                    self.graph.add_node(idx, pc = cloud.copy(), pose=cloud.pose.copy()) #, raw_pc = raw_pc, pose = self.robot.get_transform().copy())
                     # ????
-                    edge_transfrom = self.robot.get_transform().copy().combine(self.graph.nodes[node]['pose'].inv())
-                    self.graph.add_edge(idx, node, transform=edge_transfrom)
+
+                    # edge_transfrom = self.robot.get_transform().copy().combine(self.graph.nodes[node]['pose'].inv())
+                    edge_transform = frame.pose.combine( cloud.pose.inv() )
+                    self.graph.add_edge(idx, node, transform=edge_transform)
 
 
             with self.odom_transfrom_lock:

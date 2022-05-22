@@ -45,6 +45,8 @@ class Vizualizer(tk.Tk):
         if tag is not None:
             self.delete(tag)
 
+        pc = pc.global_frame()
+
         objs = []
         for x, y,_ in pc.points:
             point = self.create_point(x, y, c=c)

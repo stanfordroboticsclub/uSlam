@@ -98,6 +98,7 @@ def solve_pose_graph(pg, hold_steady=None):
     cost = 0
     for edge, data in graph.edges.items():
         i, j = edge
+        # j, i = edge
         angle, t_ij = data['transform'].get_components()
 
         R_ij = np.eye(2)

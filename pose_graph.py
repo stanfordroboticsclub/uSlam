@@ -31,7 +31,6 @@ class PoseGraph:
             output["nodes"][node] = {"pose":  json_pose,
                                      "pc": json_pc , "edges": {}}
 
-        output["edges"] = {}
         for (x,y), transform in self.get_edges():
             output["nodes"][x]["edges"][y] = {"transform": transform.toJSON() }
 
