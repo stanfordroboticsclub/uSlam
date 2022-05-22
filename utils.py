@@ -7,7 +7,7 @@ class Transform:
 
     def __repr__(self) -> str:
         angle, (x,y) =  self.get_components()
-        return f"Transform({angle}, ({x},{y}))"
+        return f"Transform.fromComponents({np.degrees(angle)}, ({x},{y}))"
 
     def get_arrow(self):
         pos = np.array([0,0,1])
@@ -41,6 +41,7 @@ class Transform:
 
     @classmethod
     def fromComponents(cls, angle, xy = None):
+        # angle in degrees
         if xy == None:
             xy = np.zeros((2))
         else:
@@ -58,12 +59,16 @@ class Transform:
         return Transform(matrix)
 
     def get_components(self):
+        # angle in radians
         x,y = self.matrix[:2,:2] @ np.array([1,0])
         angle = np.arctan2(y,x)
         return (angle, self.matrix[:2, 2])
 
     def copy(self):
         return Transform(self.matrix)
+
+    def scale(self, factor):
+        self.matrix[:2, 2] = factor * self.matrix[:2, 2]
 
 
 class Robot:
@@ -134,6 +139,9 @@ class PointCloud:
 
     def global_frame(self):
         return self.move(self.pose)
+
+    def scale(self, factor):
+        self.points = factor * self.points
 
     def extend(self, other):
         MIN_DIST = 100

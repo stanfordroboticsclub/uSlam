@@ -65,7 +65,7 @@ def rank2_approx(A):
 
     print(Rots)
 
-    global_rot = Rots[-1].T
+    global_rot = Rots[0].T
 
     # print(np.hstack(Rots).shape)
     # print(A[ :2*n , 2*n:].shape)
@@ -103,6 +103,7 @@ def solve_pose_graph(pg, hold_steady=None):
         # j, i = edge
         # angle, t_ij = data['transform'].inv().get_components()
         angle, t_ij = data['transform'].get_components()
+        t_ij = t_ij / 10
 
         print(f"edge {i} -> {j}, angle={angle}, t={t_ij}")
         # new = graph.nodes[j]['pose'].combine( graph.nodes[i]['pose'].inv() )
@@ -125,7 +126,7 @@ def solve_pose_graph(pg, hold_steady=None):
 
     # constraints = [ X_Rt(0,0) == np.zeros((2))]
     # constraints = []
-    constraints = [ X[-1,-1] == 0 ]
+    constraints = [ X[2*n, 2*n] == 0 ]
     for i in range(n):
         constraints.append( X_RR(i,i) == np.eye(2) )
 
@@ -146,6 +147,19 @@ def solve_pose_graph(pg, hold_steady=None):
 np.set_printoptions(linewidth=160)
 np.set_printoptions(linewidth=500)
 
+def copy_test():
+    pg = PoseGraph()
+
+    pg.new_node()
+    pg.new_node()
+
+    pg.add_edge(0, 1, transform = Transform.fromComponents(0, (0,400)) )
+
+    solve_pose_graph(pg)
+
+    viz = Vizualizer()
+    pg.plot(viz, plot_pc=False)
+    viz.mainloop()
 
 def simple_test():
     pg = PoseGraph()
@@ -158,30 +172,37 @@ def simple_test():
     # pg.new_node()
 
     a = lambda:np.random.normal(scale=0)
-    p = lambda:np.random.normal(scale=0.1)
+    p = lambda:np.random.normal(scale=3)
 
-    pg.add_edge(0, 1, transform = Transform.fromComponents(a(), xy = ( 0 + p(), 1 + p()) ))
-    pg.add_edge(1, 2, transform = Transform.fromComponents(a(), xy = ( 1 + p(), 0 + p()) ))
-    pg.add_edge(2, 3, transform = Transform.fromComponents(a(), xy = ( 0 + p(),-1 + p()) ))
-    # pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-1 + p(), 0 + p()) ))
+    pg.add_edge(0, 1, transform = Transform.fromComponents(a(), xy = ( 0 + p(), 100 + p()) ))
+    pg.add_edge(1, 2, transform = Transform.fromComponents(a(), xy = ( 100 + p(), 0 + p()) ))
+    pg.add_edge(2, 3, transform = Transform.fromComponents(a(), xy = ( 0 + p(),-100 + p()) ))
+    # pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-100 + p(), 0 + p()) ))
 
-    # pg.add_edge(1, 4, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
-    # pg.add_edge(2, 5, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 1 + p()) ))
-    # pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-1 + p()) ))
+    # pg.add_edge(1, 4, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 100 + p()) ))
+    # pg.add_edge(2, 5, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 100 + p()) ))
+    # pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-100 + p()) ))
 
 
     solve_pose_graph(pg)
 
     # pg = PoseGraph.load("test.json")
     pg.save("test.json")
-    viz = Vizualizer(mm_per_pix= 1/100 )
+    viz = Vizualizer(mm_per_pix= 2 )
     pg.plot(viz, plot_pc=False)
     viz.mainloop()
 
 def load():
-    viz = Vizualizer()
+    viz = Vizualizer(mm_per_pix=1)
     pg = PoseGraph.load("t.json")
 
+
+    for node, pose, pc in pg.get_nodes():
+        if pc != None:
+            pc.scale(0.1)
+
+        # if pose != None:
+        #     pose.scale(0.1)
 
     for i in range(pg.graph.number_of_nodes()):
         if i not in [0,1]:
@@ -196,6 +217,7 @@ def load():
 
 if __name__ == "__main__":
     # simple_test()
+    # copy_test()
     load()
 
 
