@@ -99,11 +99,12 @@ def solve_pose_graph(pg, hold_steady=None):
 
     cost = 0
     for edge, data in graph.edges.items():
-        i, j = edge
-        # j, i = edge
+        # i, j = edge
+        j, i = edge
         # angle, t_ij = data['transform'].inv().get_components()
         angle, t_ij = data['transform'].get_components()
-        t_ij = t_ij / 10
+        # t_ij = t_ij / 10
+        # angle = -angle
 
         print(f"edge {i} -> {j}, angle={angle}, t={t_ij}")
         # new = graph.nodes[j]['pose'].combine( graph.nodes[i]['pose'].inv() )
@@ -131,7 +132,7 @@ def solve_pose_graph(pg, hold_steady=None):
         constraints.append( X_RR(i,i) == np.eye(2) )
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
-    # prob.solve(verbose=True)
+    # prob.solve(verbose=True, max_iters = 10000)
     prob.solve()
 
     transforms = rank2_approx(X.value)
@@ -153,11 +154,11 @@ def copy_test():
     pg.new_node()
     pg.new_node()
 
-    pg.add_edge(0, 1, transform = Transform.fromComponents(0, (0,400)) )
+    pg.add_edge(0, 1, transform = Transform.fromComponents(0, (0,40)) )
 
     solve_pose_graph(pg)
 
-    viz = Vizualizer()
+    viz = Vizualizer(mm_per_pix=2)
     pg.plot(viz, plot_pc=False)
     viz.mainloop()
 
@@ -193,13 +194,13 @@ def simple_test():
     viz.mainloop()
 
 def load():
-    viz = Vizualizer(mm_per_pix=1)
+    viz = Vizualizer(mm_per_pix=15)
     pg = PoseGraph.load("t.json")
 
 
-    for node, pose, pc in pg.get_nodes():
-        if pc != None:
-            pc.scale(0.1)
+    # for node, pose, pc in pg.get_nodes():
+    #     if pc != None:
+    #         pc.scale(0.1)
 
         # if pose != None:
         #     pose.scale(0.1)
