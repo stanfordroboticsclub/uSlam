@@ -138,6 +138,26 @@ def solve_pg_paper(pg, hold_steady=0):
             graph.nodes[i]['pc'].pose = Transform(pose)
 
 
+def log_matrix(M):
+    assert M.shape == (2,2)
+    return np.arctan2(M[1,0], M[0,0] )
+
+def exp_matrix(angle):
+    matrix = np.eye(2)
+    matrix[0,0] = np.cos(angle); matrix[0,1] =-np.sin(angle)
+    matrix[1,0] = np.sin(angle); matrix[1,1] = np.cos(angle)
+    return matrix
+
+def avg_rotations(rotations):
+    R = rotations[0]
+    n = len(rotations)
+    while 1:
+        r = sum( log_matrix( R.T @ r) for r in rotations) / n
+        if r < 1e-5:
+            return R
+        R = R @ exp_matrix(r)
+
+
 def solve_pg_positions(pg, hold_steady=0):
     graph = pg.graph
     n = graph.number_of_nodes()
