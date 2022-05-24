@@ -12,7 +12,7 @@ from pose_graph import PoseGraph
 
 class SLAM:
     def __init__(self):
-        self.viz = Vizualizer()
+        self.viz = Vizualizer(mm_per_pix=20)
 
         self.odom  = Subscriber(8810, timeout=0.2)
         self.lidar = Subscriber(8110, timeout=0.1)
