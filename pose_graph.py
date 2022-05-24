@@ -82,7 +82,11 @@ class PoseGraph:
     def __repr__(self):
         out = ["PoseGraph:"]
         for node, pose, pc in self.get_nodes():
-            out.append("    " + pose.__repr__())
+            out.append(f" Node {node}: " + pose.__repr__())
+
+        for edge, transform in self.get_edges():
+            i, j = edge
+            out.append(f" Edge {i}->{j}: " + transform.__repr__())
 
         return "\n".join(out)
 
@@ -112,17 +116,16 @@ class PoseGraph:
 
         i = 0
         for node, pose, pc in self.get_nodes():
-            viz.plot_Pose(pose, c=colors[i])
+            viz.plot_Pose(pose, c=colors[i%len(colors)])
             if plot_pc:
                 global_pc = pc.global_frame()
-                viz.plot_PointCloud(global_pc, c=colors[i])
+                viz.plot_PointCloud(global_pc, c=colors[i%len(colors)])
 
             i += 1
 
         for (x,y), transform in self.get_edges():
             p1 = self.graph.nodes[x]['pose'].get_components()[1]
             p2 = self.graph.nodes[y]['pose'].get_components()[1]
-            print("ploting", p1, p2)
             viz.plot_line(p1, p2)
 
 
