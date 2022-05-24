@@ -145,16 +145,49 @@ def solve_pg_positions(pg, hold_steady=0):
     Ts = cp.Variable( ( n, 2 ) )
 
     cost = 0
+    real_cost = 0
     for (i,j), transform in pg.get_edges():
 
+        relative = pg.graph.edges[i,j]['transform'].matrix
+        pose_i = pg.graph.nodes[i]['pose'].matrix
+        pose_j = pg.graph.nodes[j]['pose'].matrix
+
         t_ij = transform.matrix[:2, 2]
-        print(t_ij)
         R_i = pg.graph.nodes[i]['pose'].matrix[:2, :2]
+        R_j = pg.graph.nodes[j]['pose'].matrix[:2, :2]
+
+        real_ti = pg.graph.nodes[i]['pose'].matrix[:2,2]
+        real_tj = pg.graph.nodes[j]['pose'].matrix[:2,2]
         
-        cost += cp.norm(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij )**2
+        # cost += cp.norm(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij )**2
+        # cost += cp.sum_squares(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij ) # from paper and logic
+
+        cost += cp.sum_squares(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
+
+        part_cost = np.linalg.norm(  R_i.T @ ( real_tj - real_ti) - t_ij )**2
+        
+        part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
+        real_cost += part_cost
+
+        # [ Rj tj    [ Ri.T -Ri.T @ ti,
+        #   0   1] @ [ 0       1 ] 
+
+        # [ Rj @ Ri.T,  - Rj @ Ri.T @ ti + tj
+        #   0               1   ]
+
+        print(f"{i=}; {j=}; {part_cost=}; {real_ti=}; {real_tj=}; {t_ij=}; {R_i=} ")
+
+        # t1 = pg.graph.nodes[i]['pose']
+        # t2 = pg.graph.nodes[j]['pose']
+
+        # assert np.allclose(relative , t2.combine( t1.inv() ).matrix)
+        assert np.allclose(relative , pose_j @ np.linalg.inv( pose_i) )
+
+    print(f"real_cost = {real_cost}")
 
     constraints = [ Ts[hold_steady, 0] == 0 ]
     constraints += [ Ts[hold_steady, 1] == 0 ]
+    # constraints = []
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
     prob.solve(verbose=True)
@@ -169,20 +202,34 @@ np.set_printoptions(linewidth=500)
 def copy_test():
     pg = PoseGraph()
 
-    pg.new_node()
-    pg.new_node()
+    pg.new_node(pose=Transform.Identity())
+    pg.new_node(pose=Transform.fromComponents(45, (100,40)))
+    pg.new_node(pose=Transform.fromComponents(45, (100,40)))
+    pg.new_node(pose=Transform.fromComponents(45, (100,40)))
 
+    pg.add_edge(0, 1, transform = Transform.Identity() )
+    pg.add_edge(1, 2, transform = Transform.Identity() )
+    pg.add_edge(2, 3, transform = Transform.Identity() )
+
+    # pg.add_edge(1, 0, transform = Transform.fromComponents(45, (200, 200)) )
     # pg.add_edge(1, 0, transform = Transform.fromComponents(45, (200, 200)) )
     # pg.add_edge(0, 1, transform = Transform.fromComponents(45, (200, 200)) )
 
     # pg.add_edge(0, 1, transform = Transform.fromComponents(10.15257190985308, (-30.640923334094072,398.9085894000594)) )
     # pg.add_edge(0, 1, transform = Transform.fromComponents(0, (-30.640923334094072,398.9085894000594)) )
 
-    pg.add_edge(1, 0, transform = Transform.fromComponents(-10.152571909853103, (40.154468049468605,398.0634969142168)) )
+    # pg.add_edge(0, 1, transform = Transform.fromComponents(-45, (40.154468049468605,398.0634969142168)) )
 
 
 
-    solve_pg_paper(pg)
+    # pg.plot(viz, plot_pc=False)
+
+    nodes_to_edges(pg)
+
+    print(pg)
+    # solve_pg_paper(pg)
+    solve_pg_positions(pg)
+
     print(pg)
 
     viz = Vizualizer(mm_per_pix=2)
@@ -212,20 +259,21 @@ def simple_test():
     # pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-100 + p()) ))
 
 
-    solve_pg_paper(pg)
-    # solve_pg_positions(pg)
+    # solve_pg_paper(pg)
+    solve_pg_positions(pg)
 
 
     # pg = PoseGraph.load("test.json")
     pg.save("test.json")
+
     viz = Vizualizer(mm_per_pix= 2 )
     pg.plot(viz, plot_pc=False)
     viz.mainloop()
 
 def load():
     viz = Vizualizer(mm_per_pix=15)
-    pg = PoseGraph.load("t.json")
-    # pg = PoseGraph.load("data/villan/hamilton_2.graph.json")
+    # pg = PoseGraph.load("t.json")
+    pg = PoseGraph.load("data/villan/hamilton_2.graph.json")
 
 
     # for node, pose, pc in pg.get_nodes():
@@ -250,13 +298,14 @@ def load():
     viz.mainloop()
 
 def nodes_to_edges(pg):
-    "fox for badly daved graphs"
+    "fox for badly saved graphs"
 
     for (x,y), transform in pg.get_edges():
         t1 = pg.graph.nodes[x]['pose']
         t2 = pg.graph.nodes[y]['pose']
 
         pg.graph.edges[x,y]['transform'] = t2.combine( t1.inv() )
+        assert np.allclose( pg.graph.edges[x,y]['transform'].matrix, t2.combine( t1.inv() ).matrix)
 
 
 
