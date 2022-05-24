@@ -126,6 +126,11 @@ class PoseGraph:
         for (x,y), transform in self.get_edges():
             p1 = self.graph.nodes[x]['pose'].get_components()[1]
             p2 = self.graph.nodes[y]['pose'].get_components()[1]
+
+            diff = self.graph.nodes[y]['pose'].combine( self.graph.nodes[x]['pose'].inv() ).combine( transform.inv() )
+            cost = np.linalg.norm( diff.matrix - np.eye(3), "fro")
+            print('edge_cost', cost)
+
             viz.plot_line(p1, p2)
 
 

@@ -150,6 +150,7 @@ class SLAM:
             keyframes = self.local_keyframes()
 
             first = True
+            added_id = None
             for dist, node in keyframes:
                 print("mathcing node", node)
                 frame = self.graph.nodes[node]['pc']
@@ -175,14 +176,13 @@ class SLAM:
                 print("new keyframe")
                 # scan = pc.move(transform)
                 with self.graph_lock:
-                    idx = self.graph.number_of_nodes()
-                    #TODO pc vs scan
-                    self.graph.add_node(idx, pc = cloud.copy(), pose=cloud.pose.copy()) #, raw_pc = raw_pc, pose = self.robot.get_transform().copy())
-                    # ????
+                    if added_id is None:
+                        added_id = self.graph.number_of_nodes()
+                        self.graph.add_node(added_id, pc = cloud.copy(), pose=cloud.pose.copy()) #, raw_pc = raw_pc, pose = self.robot.get_transform().copy())
 
                     # edge_transfrom = self.robot.get_transform().copy().combine(self.graph.nodes[node]['pose'].inv())
                     edge_transform = frame.pose.combine( cloud.pose.inv() )
-                    self.graph.add_edge(idx, node, transform=edge_transform)
+                    self.graph.add_edge(added_id, node, transform=edge_transform)
 
 
             with self.odom_transfrom_lock:

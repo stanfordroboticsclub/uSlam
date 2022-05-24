@@ -19,6 +19,9 @@ class Vizualizer(tk.Tk):
         self.canvas.pack()
 
         self.tags = defaultdict(list)
+
+    def clear(self):
+        self.canvas.delete("all")
         
     def delete(self, tag):
         for obj in self.tags[tag]:
