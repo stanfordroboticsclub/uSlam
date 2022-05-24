@@ -132,7 +132,7 @@ class Simualtor:
         start = 20
         end = 300
 
-        step = 50
+        step = 100
 
         for angle in np.linspace(0, 2*np.pi, step):
             s = np.sin(angle)
@@ -145,7 +145,8 @@ class Simualtor:
                 x -= s
                 y += c
                 items = self.canvas.find_overlapping(x,y, x+2, y+2)
-                if len(items) != 0:
+                # if len(items) != 0:
+                if any( ob in items for ob in self.obstacles):
                     output.append( (0, np.degrees(angle + self.robot.a), 1000*dist/self.PIX_per_M) )
                     self.scan_points.append(self.canvas.create_line(x, y, x+1, y, fill='red'))
                     break
