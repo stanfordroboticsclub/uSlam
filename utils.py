@@ -55,7 +55,7 @@ class Transform:
         R = self.matrix[:2, :2]
         matrix = np.eye(3)
         matrix[:2,:2] = np.linalg.inv(R)
-        matrix[:2,2]  = np.linalg.inv(R) @ self.matrix[:2, 2]
+        matrix[:2,2]  = - np.linalg.inv(R) @ self.matrix[:2, 2]
         return Transform(matrix)
 
     def get_components(self):
