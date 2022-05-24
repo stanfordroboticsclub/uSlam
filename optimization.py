@@ -159,14 +159,16 @@ def solve_pg_positions(pg, hold_steady=0):
         real_ti = pg.graph.nodes[i]['pose'].matrix[:2,2]
         real_tj = pg.graph.nodes[j]['pose'].matrix[:2,2]
         
-        # cost += cp.norm(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij )**2
+        cost += cp.norm(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij )**2
         # cost += cp.sum_squares(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij ) # from paper and logic
 
-        cost += cp.sum_squares(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
+        # cost += cp.sum_squares(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
+        # cost += cp.norm(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
 
         part_cost = np.linalg.norm(  R_i.T @ ( real_tj - real_ti) - t_ij )**2
         
         part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
+        assert part_cost < 1e-4
         real_cost += part_cost
 
         # [ Rj tj    [ Ri.T -Ri.T @ ti,
@@ -252,19 +254,20 @@ def simple_test():
     pg.add_edge(0, 1, transform = Transform.fromComponents(a(), xy = ( 0 + p(), 100 + p()) ))
     pg.add_edge(1, 2, transform = Transform.fromComponents(a(), xy = ( 100 + p(), 0 + p()) ))
     pg.add_edge(2, 3, transform = Transform.fromComponents(a(), xy = ( 0 + p(),-100 + p()) ))
-    # pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-100 + p(), 0 + p()) ))
+    pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-100 + p(), 0 + p()) ))
 
     # pg.add_edge(1, 4, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 100 + p()) ))
     # pg.add_edge(2, 5, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 100 + p()) ))
     # pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-100 + p()) ))
 
 
-    # solve_pg_paper(pg)
-    solve_pg_positions(pg)
+    solve_pg_paper(pg)
+    # solve_pg_positions(pg)
 
 
     # pg = PoseGraph.load("test.json")
     pg.save("test.json")
+    print(nx.find_cycle(pg.graph, 0 , orientation="ignore"))
 
     viz = Vizualizer(mm_per_pix= 2 )
     pg.plot(viz, plot_pc=False)
@@ -273,7 +276,8 @@ def simple_test():
 def load():
     viz = Vizualizer(mm_per_pix=15)
     # pg = PoseGraph.load("t.json")
-    pg = PoseGraph.load("data/villan/hamilton_2.graph.json")
+    # pg = PoseGraph.load("data/villan/hamilton_2.graph.json")
+    pg = PoseGraph.load("output_ham_1_icra.json")
 
 
     # for node, pose, pc in pg.get_nodes():
@@ -287,7 +291,7 @@ def load():
     #     if i not in [0,1, 2, 3]:
     #         pg.graph.remove_node(i)
 
-    nodes_to_edges(pg)
+    # nodes_to_edges(pg)
 
     print(pg)
     # solve_pg_paper(pg)
@@ -295,6 +299,7 @@ def load():
     print(pg)
 
     pg.plot(viz, plot_pc=True)
+
     viz.mainloop()
 
 def nodes_to_edges(pg):

@@ -168,7 +168,7 @@ class SLAM:
                         print("closest key frame happy")
                         break
 
-                if dist < 400:
+                if dist < 300: #400
                     print("closest key frame happy")
                     continue
 

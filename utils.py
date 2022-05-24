@@ -213,9 +213,9 @@ class PointCloud:
                 #     skew = -99998765
 
                 print("skew", skew)
-                if( skew < 1.5):
-                    print("bad skew")
-                    return None, Transform.Identity()
+                # if( skew < 1.5):
+                #     print("bad skew")
+                #     return None, Transform.Identity()
 
                 other.pose = offset.combine(other.pose)
                 # returns corrected other (with corrected transform), and the correcting transform
