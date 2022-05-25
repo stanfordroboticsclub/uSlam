@@ -30,14 +30,14 @@ class Vizualizer(tk.Tk):
         del self.tags[tag]
 
     @schedule
-    def plot_line(self, p1, p2, tag = None):
+    def plot_line(self, p1, p2, tag = None, c=None):
         if tag is not None:
             self.delete(tag)
 
         line = self.canvas.create_line(self.SIZE/2 + p1[0]/self.MM_PER_PIX,
                            self.SIZE/2 - p1[1]/self.MM_PER_PIX,
                            self.SIZE/2 + p2[0]/self.MM_PER_PIX,
-                           self.SIZE/2 - p2[1]/self.MM_PER_PIX)
+                           self.SIZE/2 - p2[1]/self.MM_PER_PIX, fill = c)
 
         if tag is not None:
             self.tags[tag].append(line)

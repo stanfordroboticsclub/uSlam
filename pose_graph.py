@@ -131,7 +131,12 @@ class PoseGraph:
             cost = np.linalg.norm( diff.matrix - np.eye(3), "fro")
             print('edge_cost', cost)
 
-            viz.plot_line(p1, p2)
+            hex = min(int( 255 * (1 / cost) ), 255)
+            print(hex)
+            # print( int(255 * (np.tanh(cost) + 1)/2 ) )
+            # hex = int(255 * (np.tanh(cost) + 1)/2 )
+            color = "#FF%02x%02x" %  ( hex, hex )
+            viz.plot_line(p1, p2, c=color)
 
 
 if __name__ == "__main__":
