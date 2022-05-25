@@ -219,6 +219,34 @@ def solve_pg_positions(pg, hold_steady=0):
     for i in range(n):
         graph.nodes[i]['pose'].matrix[:2, 2] = Ts.value[i, :2]
 
+
+def solve_pg_rotations(pg, hold_steady = 0):
+
+    graph = pg.graph
+    n = graph.number_of_nodes()
+
+    for _ in range(100):
+        node = np.random.randint(n) # TODO smarted sampling
+
+        rots = []
+        for target in graph.successors(node):
+            transform = graph.edges[node, target]['transform']
+            target_pose = graph.nodes[target]['pose']
+
+            R = transform.combine( target_pose.inv() ).matrix[:2, :2]
+            rots.append(R)
+
+        for source in graph.predecessors(node):
+            transform = graph.edges[source, node]['transform']
+            source_pose = graph.nodes[target]['pose']
+
+            R = transform.combine( source_pose.inv() ).matrix[:2, :2]
+            rots.append(R)
+
+        graph.nodes[node]['pose'].matrix[:2, :2] = avg_rotations(rots)
+
+
+
 # np.get_printoptions()['linewidth']
 np.set_printoptions(linewidth=160)
 np.set_printoptions(linewidth=500)
