@@ -327,7 +327,9 @@ def simple_test():
 
 def load():
     # pg = PoseGraph.load("t.json")
-    pg = PoseGraph.load("output_looop_real.json")
+    # pg = PoseGraph.load("output_looop_real.json")
+    # pg = PoseGraph.load("output_messy_perf.json")
+    pg = PoseGraph.load("output_first_perf.json")
 
     # for i in range(pg.graph.number_of_nodes()):
     #     if i not in [0,1, 2, 3]:

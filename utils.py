@@ -109,6 +109,7 @@ class PointCloud:
         if pose == None:
             pose = Transform.Identity()
         self.pose = pose
+        self.last_matched_distances = np.array([])
 
     @classmethod
     def fromJSON(cls, list):
@@ -179,7 +180,7 @@ class PointCloud:
 
             aligment = global_self.AlignSVD(global_other)
             if aligment is None:
-                return None, offset
+                return None, offset, self.last_matched_distances.shape[0]
 
             angle, xy = aligment.get_components()
             dist = np.sum(xy**2)**0.5
@@ -202,7 +203,7 @@ class PointCloud:
 
                 if( np.abs(angle) > 0.8 or dist > 1700):
                     print("sketchy")
-                    return None, offset
+                    return None, offset, self.last_matched_distances.shape[0]
 
                 mean = np.mean(global_self.last_matched_distances)
                 d = global_self.last_matched_distances - mean
@@ -213,16 +214,16 @@ class PointCloud:
                 #     skew = -99998765
 
                 print("skew", skew)
-                # if( skew < 1.5):
-                #     print("bad skew")
-                #     return None, Transform.Identity()
+                if( skew < 1.5):
+                    print("bad skew")
+                    return None, Transform.Identity(), self.last_matched_distances.shape[0]
 
                 other.pose = offset.combine(other.pose)
                 # returns corrected other (with corrected transform), and the correcting transform
-                return other, offset
+                return other, offset, self.last_matched_distances.shape[0]
         else:
             print("convergence failure!")
-            return None, offset
+            return None, offset, self.last_matched_distances.shape[0]
 
 
     def AlignSVD(self, other):

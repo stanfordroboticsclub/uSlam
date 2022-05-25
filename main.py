@@ -154,27 +154,28 @@ class SLAM:
             for dist, node in keyframes:
                 print("mathcing node", node)
                 frame = self.graph.nodes[node]['pc']
-                cloud, transform = frame.fitICP(pc)
+                cloud, transform, number_matched = frame.fitICP(pc)
+                new_points = pc.points.shape[0] - number_matched
+                print("new points", new_points)
 
                 if cloud is None:
                     print("match failed") #TODO
-                    self.viz.plot_PointCloud(pc.move(transform), c="red", tag="failed")
+                    self.viz.plot_PointCloud(cloud, c="red", tag="failed")
                     continue
 
                 if first:
                     print("robot pos updated")
                     self.robot.move(transform)
                     first = False
-                    if dist < 400:
+                    if dist < 300 and new_points < 150:
                         print("closest key frame happy")
                         break
 
-                if dist < 300: #400
+                if dist < 300 and new_points < 150: #400
                     print("closest key frame happy")
                     continue
 
                 print("new keyframe")
-                # scan = pc.move(transform)
                 with self.graph_lock:
                     if added_id is None:
                         added_id = self.graph.number_of_nodes()
