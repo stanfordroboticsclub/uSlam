@@ -228,7 +228,6 @@ def solve_pg_rotations(pg, hold_steady = 0):
     for node in range(n):
         if len(list(nx.all_neighbors(graph, node))) > 1:
             queue = [node]
-            break
 
     if queue == []:
         print("emplty")
@@ -242,8 +241,9 @@ def solve_pg_rotations(pg, hold_steady = 0):
         node = queue.pop(0)
 
         # node = np.random.randint(n) # TODO smarted sampling
-        # if node == hold_steady:
-        #     continue
+
+        if node == hold_steady:
+            continue
         rots = []
 
         for target in graph.successors(node):
@@ -300,27 +300,19 @@ def copy_test():
 def simple_test():
     pg = PoseGraph()
 
-    pg.new_node()
-    pg.new_node()
-    pg.new_node()
-    pg.new_node()
-    # pg.new_node()
-    # pg.new_node()
-
-    a = lambda:np.random.normal(scale=0)
-    p = lambda:np.random.normal(scale=3)
-
-    pg.add_edge(0, 1, transform = Transform.fromComponents(a(), xy = ( 0 + p(), 100 + p()) ))
-    pg.add_edge(1, 2, transform = Transform.fromComponents(a(), xy = ( 100 + p(), 0 + p()) ))
-    pg.add_edge(2, 3, transform = Transform.fromComponents(a(), xy = ( 0 + p(),-100 + p()) ))
-    pg.add_edge(3, 0, transform = Transform.fromComponents(a(), xy = (-100 + p(), 0 + p()) ))
-
-    # pg.add_edge(1, 4, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 100 + p()) ))
-    # pg.add_edge(2, 5, transform = Transform.fromComponents(90 + a(), xy = (0 + p(), 100 + p()) ))
-    # pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-100 + p()) ))
+    pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
+    pg.new_node( pose = Transform.fromComponents(0, xy = ( 1000, 0) ) )
+    pg.new_node( pose = Transform.fromComponents(-45, xy = ( 1000, 1000) ) )
+    pg.new_node( pose = Transform.fromComponents(143, xy = ( 0, 1000) ) )
 
 
-    return pg
+    pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (1000,0) ))
+    pg.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (0, 1000) ))
+    pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
+    pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
+
+
+    return pg, 15, False
     solve_pg_paper(pg)
     # solve_pg_positions(pg)
 
@@ -342,7 +334,7 @@ def load():
     #         pg.graph.remove_node(i)
 
     # nodes_to_edges(pg)
-    return pg
+    return pg, 15, True
 
 
 def nodes_to_edges(pg):
@@ -358,13 +350,13 @@ def nodes_to_edges(pg):
 
 
 def main():
-    # simple_test()
+    # pg, mm_per_pix, plot_pc = simple_test()
     # copy_test()
-    pg = load()
+    pg, mm_per_pix, plot_pc = load()
     print(pg)
 
-    viz = Vizualizer(mm_per_pix=15)
-    pg.plot(viz, plot_pc=True)
+    viz = Vizualizer(mm_per_pix=mm_per_pix)
+    pg.plot(viz, plot_pc=plot_pc)
 
     # viz.update()
 
@@ -373,11 +365,11 @@ def main():
 
     # for _ in range(10):
     def opt():
-        # solve_pg_positions(pg)
+        solve_pg_positions(pg)
         solve_pg_rotations(pg)
         print(pg)
         viz.clear()
-        pg.plot(viz, plot_pc=True)
+        pg.plot(viz, plot_pc=plot_pc)
         viz.after(100, opt)
 
 

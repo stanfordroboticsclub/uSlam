@@ -131,7 +131,9 @@ class PoseGraph:
             cost = np.linalg.norm( diff.matrix - np.eye(3), "fro")
             print('edge_cost', cost)
 
-            hex = min(int( 255 * (1 / cost) ), 255)
+
+
+            hex = int( min(255 * (1 / cost) , 255 ))
             print(hex)
             # print( int(255 * (np.tanh(cost) + 1)/2 ) )
             # hex = int(255 * (np.tanh(cost) + 1)/2 )
