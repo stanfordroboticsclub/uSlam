@@ -225,24 +225,47 @@ def solve_pg_rotations(pg, hold_steady = 0):
     graph = pg.graph
     n = graph.number_of_nodes()
 
-    for _ in range(100):
-        node = np.random.randint(n) # TODO smarted sampling
+    for node in range(n):
+        if len(list(nx.all_neighbors(graph, node))) > 1:
+            queue = [node]
+            break
 
+    if queue == []:
+        print("emplty")
+        return
+
+    for _ in range(10 * n):
+        print(queue)
+        if queue == []:
+            break
+        
+        node = queue.pop(0)
+
+        # node = np.random.randint(n) # TODO smarted sampling
+        # if node == hold_steady:
+        #     continue
         rots = []
+
         for target in graph.successors(node):
             transform = graph.edges[node, target]['transform']
             target_pose = graph.nodes[target]['pose']
 
-            R = transform.combine( target_pose.inv() ).matrix[:2, :2]
+            # R = transform.combine( target_pose.inv() ).matrix[:2, :2]
+            R = transform.inv().combine( target_pose ).matrix[:2, :2]
             rots.append(R)
+
+            queue.append(target)
 
         for source in graph.predecessors(node):
             transform = graph.edges[source, node]['transform']
-            source_pose = graph.nodes[target]['pose']
+            source_pose = graph.nodes[source]['pose']
 
-            R = transform.combine( source_pose.inv() ).matrix[:2, :2]
+            R = transform.combine( source_pose ).matrix[:2, :2]
             rots.append(R)
+            queue.append(source)
 
+        if rots == []:
+            continue
         graph.nodes[node]['pose'].matrix[:2, :2] = avg_rotations(rots)
 
 
@@ -272,21 +295,7 @@ def copy_test():
 
     # pg.add_edge(0, 1, transform = Transform.fromComponents(-45, (40.154468049468605,398.0634969142168)) )
 
-
-
-    # pg.plot(viz, plot_pc=False)
-
-    nodes_to_edges(pg)
-
-    print(pg)
-    # solve_pg_paper(pg)
-    solve_pg_positions(pg)
-
-    print(pg)
-
-    viz = Vizualizer(mm_per_pix=2)
-    pg.plot(viz, plot_pc=False)
-    viz.mainloop()
+    return pg
 
 def simple_test():
     pg = PoseGraph()
@@ -311,6 +320,7 @@ def simple_test():
     # pg.add_edge(4, 5, transform = Transform.fromComponents(a(), xy = (0 + p(),-100 + p()) ))
 
 
+    return pg
     solve_pg_paper(pg)
     # solve_pg_positions(pg)
 
@@ -324,38 +334,16 @@ def simple_test():
     viz.mainloop()
 
 def load():
-    viz = Vizualizer(mm_per_pix=15)
     # pg = PoseGraph.load("t.json")
     pg = PoseGraph.load("output_looop_real.json")
-
-
-    # for node, pose, pc in pg.get_nodes():
-    #     if pc != None:
-    #         pc.scale(0.1)
-
-        # if pose != None:
-        #     pose.scale(0.1)
 
     # for i in range(pg.graph.number_of_nodes()):
     #     if i not in [0,1, 2, 3]:
     #         pg.graph.remove_node(i)
 
     # nodes_to_edges(pg)
+    return pg
 
-    # pg.plot(viz, plot_pc=True)
-
-    # viz.update()
-
-    viz.clear()
-    print(pg)
-
-    # solve_pg_paper(pg)
-    solve_pg_positions(pg)
-
-    print(pg)
-    pg.plot(viz, plot_pc=True)
-
-    viz.mainloop()
 
 def nodes_to_edges(pg):
     "fox for badly saved graphs"
@@ -369,10 +357,36 @@ def nodes_to_edges(pg):
 
 
 
-if __name__ == "__main__":
+def main():
     # simple_test()
     # copy_test()
-    load()
+    pg = load()
+    print(pg)
+
+    viz = Vizualizer(mm_per_pix=15)
+    pg.plot(viz, plot_pc=True)
+
+    # viz.update()
+
+
+    # solve_pg_paper(pg)
+
+    # for _ in range(10):
+    def opt():
+        # solve_pg_positions(pg)
+        solve_pg_rotations(pg)
+        print(pg)
+        viz.clear()
+        pg.plot(viz, plot_pc=True)
+        viz.after(100, opt)
+
+
+    viz.after(100, opt)
+
+    viz.mainloop()
+
+if __name__ == "__main__":
+    main()
 
 
 

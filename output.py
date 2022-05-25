@@ -20,6 +20,7 @@ class Vizualizer(tk.Tk):
 
         self.tags = defaultdict(list)
 
+    @schedule
     def clear(self):
         self.canvas.delete("all")
         
