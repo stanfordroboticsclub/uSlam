@@ -380,7 +380,7 @@ def main():
         solve_pg_positions(pg)
         solve_pg_rotations(pg)
         print(pg)
-        viz.clear()
+        # viz.clear()
         pg.plot(viz, plot_pc=plot_pc)
         viz.after(100, opt)
 

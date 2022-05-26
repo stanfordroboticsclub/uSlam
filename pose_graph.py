@@ -116,10 +116,10 @@ class PoseGraph:
 
         i = 0
         for node, pose, pc in self.get_nodes():
-            viz.plot_Pose(pose, c=colors[i%len(colors)])
+            viz.plot_Pose(pose, c=colors[i%len(colors)], tag = str(node)+"_pose")
             if plot_pc:
                 global_pc = pc.global_frame()
-                viz.plot_PointCloud(global_pc, c=colors[i%len(colors)])
+                viz.plot_PointCloud(global_pc, c=colors[i%len(colors)], tag = str(node)+"_pc")
 
             i += 1
 
@@ -138,7 +138,7 @@ class PoseGraph:
             # print( int(255 * (np.tanh(cost) + 1)/2 ) )
             # hex = int(255 * (np.tanh(cost) + 1)/2 )
             color = "#FF%02x%02x" %  ( hex, hex )
-            viz.plot_line(p1, p2, c=color)
+            viz.plot_line(p1, p2, c=color, tag = str((x,y))+"_edge")
 
 
 if __name__ == "__main__":
