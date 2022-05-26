@@ -111,12 +111,11 @@ def solve_pg_paper(pg, hold_steady=0):
         # print(X_RR(i,j).shape)
         # print(R_ij.shape)
 
-        # t_ij = - t_ij #TODO WTF WHYYY??
         cost += 10  * cp.norm( X_Rt(i,j) - X_Rt(i,i) - t_ij)
         cost += 10  * cp.norm( X_RR(i,j) - R_ij, "fro") / np.sqrt(2)
 
     # cost += 0.00001*cp.norm(X, "fro")
-    cost += 0.00001*cp.sum(cp.abs(X))
+    # cost += 0.00001*cp.sum(cp.abs(X))
 
     # constraints = [ X_Rt(0,0) == np.zeros((2))]
     # constraints = []
