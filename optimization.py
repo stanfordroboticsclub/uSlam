@@ -250,7 +250,6 @@ def solve_pg_rotations(pg, hold_steady = 0):
             transform = graph.edges[node, target]['transform']
             target_pose = graph.nodes[target]['pose']
 
-            # R = transform.combine( target_pose.inv() ).matrix[:2, :2]
             R = transform.inv().combine( target_pose ).matrix[:2, :2]
             rots.append(R)
 
@@ -300,16 +299,27 @@ def copy_test():
 def simple_test():
     pg = PoseGraph()
 
+    # pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
+    # pg.new_node( pose = Transform.fromComponents(0, xy = ( 1000, 0) ) )
+    # pg.new_node( pose = Transform.fromComponents(-45, xy = ( 1000, 1000) ) )
+    # pg.new_node( pose = Transform.fromComponents(143, xy = ( 0, 1000) ) )
+
+
+    # pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (1000,0) ))
+    # pg.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (0, 1000) ))
+    # pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
+    # pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
+
     pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
-    pg.new_node( pose = Transform.fromComponents(0, xy = ( 1000, 0) ) )
-    pg.new_node( pose = Transform.fromComponents(-45, xy = ( 1000, 1000) ) )
-    pg.new_node( pose = Transform.fromComponents(143, xy = ( 0, 1000) ) )
+    pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
+    pg.new_node( pose = Transform.fromComponents(190, xy = ( -1100, 1100) ) )
+    pg.new_node( pose = Transform.fromComponents(285, xy = ( -1200,    0) ) )
 
 
-    pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (1000,0) ))
-    pg.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (0, 1000) ))
-    pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
-    pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
+    pg.add_edge(0, 1, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    pg.add_edge(1, 2, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    pg.add_edge(2, 3, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
 
 
     return pg, 15, False
@@ -329,7 +339,8 @@ def load():
     # pg = PoseGraph.load("t.json")
     # pg = PoseGraph.load("output_looop_real.json")
     # pg = PoseGraph.load("output_messy_perf.json")
-    pg = PoseGraph.load("output_first_perf.json")
+    # pg = PoseGraph.load("output_first_perf.json")
+    pg = PoseGraph.load("output.json")
 
     # for i in range(pg.graph.number_of_nodes()):
     #     if i not in [0,1, 2, 3]:
@@ -352,18 +363,18 @@ def nodes_to_edges(pg):
 
 
 def main():
-    # pg, mm_per_pix, plot_pc = simple_test()
+    pg, mm_per_pix, plot_pc = simple_test()
     # copy_test()
-    pg, mm_per_pix, plot_pc = load()
+    # pg, mm_per_pix, plot_pc = load()
     print(pg)
 
     viz = Vizualizer(mm_per_pix=mm_per_pix)
-    pg.plot(viz, plot_pc=plot_pc)
 
     # viz.update()
 
-
     # solve_pg_paper(pg)
+
+    pg.plot(viz, plot_pc=plot_pc)
 
     # for _ in range(10):
     def opt():

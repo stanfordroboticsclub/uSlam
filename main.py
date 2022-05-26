@@ -156,6 +156,7 @@ class SLAM:
                 frame = self.graph.nodes[node]['pc']
                 cloud, transform, number_matched = frame.fitICP(pc)
                 new_points = pc.points.shape[0] - number_matched
+                new_points = 0
                 print("new points", new_points)
 
                 if cloud is None:

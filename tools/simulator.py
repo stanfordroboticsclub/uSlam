@@ -132,7 +132,7 @@ class Simualtor:
         start = 20
         end = 300
 
-        step = 100
+        step = 250
 
         for angle in np.linspace(0, 2*np.pi, step):
             s = np.sin(angle)
