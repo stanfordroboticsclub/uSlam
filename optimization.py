@@ -9,6 +9,8 @@ from output import Vizualizer
 
 from time import sleep
 
+import matplotlib.pyplot as plt
+
 
 def graph_loss(pg):
     loss = 0
@@ -28,8 +30,8 @@ def graph_loss(pg):
         real_ti = pg.graph.nodes[i]['pose'].matrix[:2,2]
         real_tj = pg.graph.nodes[j]['pose'].matrix[:2,2]
 
-        part_cost = np.linalg.norm(  R_i.T @ ( real_tj - real_ti) - t_ij )**2
-        # part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
+        # part_cost = np.linalg.norm(  R_i.T @ (real_tj - real_ti) - t_ij )**2
+        part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
 
         part_cost += np.linalg.norm(  R_i.T @ R_j - R_ij, "fro")**2
 
@@ -186,36 +188,10 @@ def solve_pg_positions(pg, hold_steady=0):
         real_ti = pg.graph.nodes[i]['pose'].matrix[:2,2]
         real_tj = pg.graph.nodes[j]['pose'].matrix[:2,2]
         
-        # cost += cp.norm(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij )**2
         # cost += cp.sum_squares(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij ) # from paper and logic
-
         cost += cp.sum_squares(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
-        # cost += cp.norm(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
 
-        part_cost = np.linalg.norm(  R_i.T @ ( real_tj - real_ti) - t_ij )**2
-        
-        part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
-        # assert part_cost < 1e-4
-        real_cost += part_cost
-
-        # [ Rj tj    [ Ri.T -Ri.T @ ti,
-        #   0   1] @ [ 0       1 ] 
-
-        # [ Rj @ Ri.T,  - Rj @ Ri.T @ ti + tj
-        #   0               1   ]
-
-        print(f"{i=}; {j=}; {part_cost=}; {real_ti=}; {real_tj=}; {t_ij=}; {R_i=} ")
-
-        # t1 = pg.graph.nodes[i]['pose']
-        # t2 = pg.graph.nodes[j]['pose']
-
-        # assert np.allclose(relative , t2.combine( t1.inv() ).matrix)
-        # assert np.allclose(relative , pose_j @ np.linalg.inv( pose_i) )
-
-    print(f"real_cost = {real_cost}")
-
-    constraints = [ Ts[hold_steady, 0] == 0 ]
-    constraints += [ Ts[hold_steady, 1] == 0 ]
+    constraints = [ Ts[hold_steady, 0] == np.array([0,0]) ]
     # constraints = []
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
@@ -241,7 +217,6 @@ def solve_pg_rotations(pg, hold_steady = 0, also_positions = False):
         return
 
     for _ in range(10 * n):
-    # for _ in range(1):
         if queue == []:
             break
 
@@ -280,7 +255,6 @@ def solve_pg_rotations(pg, hold_steady = 0, also_positions = False):
 
 
 
-# np.get_printoptions()['linewidth']
 np.set_printoptions(linewidth=160)
 np.set_printoptions(linewidth=500)
 
@@ -326,10 +300,10 @@ def simple_test():
 def load():
     # pg = PoseGraph.load("t.json")
     # pg = PoseGraph.load("output_looop_real.json")
-    pg = PoseGraph.load("output_messy_perf.json")
+    # pg = PoseGraph.load("output_messy_perf.json")
     # pg = PoseGraph.load("output_first_perf.json")
     # pg = PoseGraph.load("output_sim.json")
-    # pg = PoseGraph.load("output_simple_working.json")
+    pg = PoseGraph.load("output_simple_working.json")
     # pg = PoseGraph.load("output.json")
 
     # for i in range(pg.graph.number_of_nodes()):
@@ -359,23 +333,33 @@ def main():
 
     viz = Vizualizer(mm_per_pix=mm_per_pix)
 
-    # viz.update()
 
-    solve_pg_paper(pg)
+    loss = []
+    # loss = solve_pg_paper(pg)
 
     pg.plot(viz, plot_pc=plot_pc)
 
-    # for _ in range(10):
+
     def opt():
-        solve_pg_positions(pg)
-        solve_pg_rotations(pg, also_positions=False)
-        print(pg)
-        # viz.clear()
+        # loss.append(graph_loss(pg))
+        # solve_pg_positions(pg)
+        loss.append(graph_loss(pg))
+        solve_pg_rotations(pg, also_positions=True)
+
+
         pg.plot(viz, plot_pc=plot_pc)
         viz.after(100, opt)
 
+    viz.after(5000, opt)
 
-    # viz.after(5000, opt)
+
+    def quit():
+        viz.destroy()
+        plt.figure()
+        plt.plot(loss)
+        plt.show()
+
+    viz.protocol("WM_DELETE_WINDOW", quit)
 
     viz.mainloop()
 
