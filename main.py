@@ -157,6 +157,7 @@ class SLAM:
                 cloud, transform, number_matched = frame.fitICP(pc)
                 new_points = pc.points.shape[0] - number_matched
                 new_points = 0
+                new_keyframe_distace = 600 # 300
                 print("new points", new_points)
 
                 if cloud is None:
@@ -168,11 +169,11 @@ class SLAM:
                     print("robot pos updated")
                     self.robot.move(transform)
                     first = False
-                    if dist < 300 and new_points < 150:
+                    if dist < new_keyframe_distace and new_points < 150:
                         print("closest key frame happy")
                         break
 
-                if dist < 300 and new_points < 150: #400
+                if dist < new_keyframe_distace and new_points < 150: #400
                     print("closest key frame happy")
                     continue
 

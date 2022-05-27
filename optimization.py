@@ -10,18 +10,31 @@ from output import Vizualizer
 from time import sleep
 
 
-# graph = nx.Graph()
+def graph_loss(pg):
+    loss = 0
 
-# graph.add_node(0)
-# graph.add_node(1)
-# graph.add_node(2)
-# graph.add_node(3)
+    for (i,j), transform in pg.get_edges():
 
+        relative = pg.graph.edges[i,j]['transform'].matrix
+        pose_i = pg.graph.nodes[i]['pose'].matrix
+        pose_j = pg.graph.nodes[j]['pose'].matrix
 
-# graph.add_edge(0, 1, measure = Transform.fromComponents(0, xy = (0,1) ))
-# graph.add_edge(1, 2, measure = Transform.fromComponents(0, xy = (1,0) ))
-# graph.add_edge(2, 3, measure = Transform.fromComponents(0, xy = (0,-1) ))
-# graph.add_edge(3, 0, measure = Transform.fromComponents(0, xy = (-1,0) ))
+        t_ij = transform.matrix[:2, 2]
+        R_ij = transform.matrix[:2, :2]
+
+        R_i = pg.graph.nodes[i]['pose'].matrix[:2, :2]
+        R_j = pg.graph.nodes[j]['pose'].matrix[:2, :2]
+
+        real_ti = pg.graph.nodes[i]['pose'].matrix[:2,2]
+        real_tj = pg.graph.nodes[j]['pose'].matrix[:2,2]
+
+        part_cost = np.linalg.norm(  R_i.T @ ( real_tj - real_ti) - t_ij )**2
+        # part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
+
+        part_cost += np.linalg.norm(  R_i.T @ R_j - R_ij, "fro")**2
+
+        loss += part_cost
+    return loss
 
 
 def get_rot_matirx(A):
@@ -76,6 +89,8 @@ def solve_pg_paper(pg, hold_steady=0):
 
     graph = pg.graph
 
+    scale_down = 1000
+
     n = graph.number_of_nodes()
 
     X = cp.Variable( ( 3*n, 3*n ) , PSD = True)
@@ -90,51 +105,42 @@ def solve_pg_paper(pg, hold_steady=0):
     for edge, data in graph.edges.items():
         i, j = edge
         # j, i = edge
-        # angle, t_ij = data['transform'].inv().get_components()
         angle, t_ij = data['transform'].get_components()
-        # t_ij = t_ij / 10
-        # angle = -angle
-
         print(f"edge {i} -> {j}, angle={np.degrees(angle)}, t={t_ij}")
-        # new = graph.nodes[j]['pose'].combine( graph.nodes[i]['pose'].inv() )
-        # new_angle, new_t_ij = new.get_components()
-        # print(f"calc {i} -> {j}, angle={new_angle}, t={new_t_ij}")
-        print()
 
-        R_ij = np.eye(2)
-        R_ij[0,0] = np.cos(angle); R_ij[0,1] =-np.sin(angle)
-        R_ij[1,0] = np.sin(angle); R_ij[1,1] = np.cos(angle)
+        R_ij = data['transform'].matrix[:2, :2]
+        t_ij = data['transform'].matrix[:2, 2]
 
-        # print(X_Rt(i,j).shape)
-        # print(X_Rt(i,i).shape)
-        # print(t_ij.shape)
-        # print(X_RR(i,j).shape)
-        # print(R_ij.shape)
+        t_ij = t_ij / scale_down
 
-        cost += 10  * cp.norm( X_Rt(i,j) - X_Rt(i,i) - t_ij)
-        cost += 10  * cp.norm( X_RR(i,j) - R_ij, "fro") / np.sqrt(2)
+        # R_ij = np.eye(2)
+        # R_ij[0,0] = np.cos(angle); R_ij[0,1] =-np.sin(angle)
+        # R_ij[1,0] = np.sin(angle); R_ij[1,1] = np.cos(angle)
 
-    # cost += 0.00001*cp.norm(X, "fro")
+        cost += 10  * cp.sum_squares( X_Rt(i,j) - X_Rt(i,i) - t_ij)
+        cost += 10  * cp.sum_squares( X_RR(i,j) - R_ij) / np.sqrt(2)
+        # cost += 10  * cp.norm( X_RR(i,j) - R_ij, "fro") / np.sqrt(2)
+
+    # cost += 0.0001*cp.norm(X, "fro")
     # cost += 0.00001*cp.sum(cp.abs(X))
 
-    # constraints = [ X_Rt(0,0) == np.zeros((2))]
-    # constraints = []
+    constraints = []
     constraints = [ X[2*n + hold_steady, 2*n + hold_steady] == 0 ]
-    # constraints = [ X[-1,-1] == 0 ]
     for i in range(n):
         constraints.append( X_RR(i,i) == np.eye(2) )
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
-    # prob.solve(solver=cp.CVXOPT, verbose=True)
+
     prob.solve(solver=cp.CVXOPT, verbose=True)
     # prob.solve(verbose=True)
-    # prob.solve(max_iters = 100_000)
     # prob.solve(alpha= 1.2, acceleration_lookback=0, use_indirect=False, scale=5, normalize=True)
 
     transforms = recover_transforms(X.value, hold_steady=hold_steady)
 
     for i,pose in enumerate(transforms):
         graph.nodes[i]['pose'] = Transform(pose)
+        graph.nodes[i]['pose'].matrix[:2, 2] *= scale_down
+
         if graph.nodes[i]["pc"] != None:
             graph.nodes[i]['pc'].pose = Transform(pose)
 
@@ -213,36 +219,33 @@ def solve_pg_positions(pg, hold_steady=0):
     # constraints = []
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
-    prob.solve(verbose=True)
+    prob.solve()
 
     for i in range(n):
         graph.nodes[i]['pose'].matrix[:2, 2] = Ts.value[i, :2]
 
 
-def solve_pg_rotations(pg, hold_steady = 0):
+def solve_pg_rotations(pg, hold_steady = 0, also_positions = False):
 
     graph = pg.graph
     n = graph.number_of_nodes()
 
-    # for node in range(n):
-    #     if len(list(nx.all_neighbors(graph, node))) > 1:
-    #         queue = [node]
+    for node in range(n):
+        if len(list(nx.all_neighbors(graph, node))) > 1:
+            queue = [node]
 
-    queue = [np.random.randint(n)]
+    # queue = [np.random.randint(n)]
 
     if queue == []:
         print("emplty")
         return
 
-    # for _ in range(10 * n):
-    for _ in range(1):
-        print(queue)
+    for _ in range(10 * n):
+    # for _ in range(1):
         if queue == []:
             break
-        
-        node = queue.pop(0)
 
-        # node = np.random.randint(n) # TODO smarted sampling
+        node = queue.pop(0)
 
         if node == hold_steady:
             continue
@@ -272,7 +275,8 @@ def solve_pg_rotations(pg, hold_steady = 0):
         if rots == []:
             continue
         graph.nodes[node]['pose'].matrix[:2, :2] = avg_rotations(rots)
-        # graph.nodes[node]['pose'].matrix[:2, 2] = sum(pos)/len(pos)
+        if also_positions:
+            graph.nodes[node]['pose'].matrix[:2, 2] = sum(pos)/len(pos)
 
 
 
@@ -280,28 +284,6 @@ def solve_pg_rotations(pg, hold_steady = 0):
 np.set_printoptions(linewidth=160)
 np.set_printoptions(linewidth=500)
 
-def copy_test():
-    pg = PoseGraph()
-
-    pg.new_node(pose=Transform.Identity())
-    pg.new_node(pose=Transform.fromComponents(45, (100,40)))
-    pg.new_node(pose=Transform.fromComponents(45, (100,40)))
-    pg.new_node(pose=Transform.fromComponents(45, (100,40)))
-
-    pg.add_edge(0, 1, transform = Transform.Identity() )
-    pg.add_edge(1, 2, transform = Transform.Identity() )
-    pg.add_edge(2, 3, transform = Transform.Identity() )
-
-    # pg.add_edge(1, 0, transform = Transform.fromComponents(45, (200, 200)) )
-    # pg.add_edge(1, 0, transform = Transform.fromComponents(45, (200, 200)) )
-    # pg.add_edge(0, 1, transform = Transform.fromComponents(45, (200, 200)) )
-
-    # pg.add_edge(0, 1, transform = Transform.fromComponents(10.15257190985308, (-30.640923334094072,398.9085894000594)) )
-    # pg.add_edge(0, 1, transform = Transform.fromComponents(0, (-30.640923334094072,398.9085894000594)) )
-
-    # pg.add_edge(0, 1, transform = Transform.fromComponents(-45, (40.154468049468605,398.0634969142168)) )
-
-    return pg
 
 def simple_test():
     pg = PoseGraph()
@@ -328,7 +310,7 @@ def simple_test():
     # pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
 
 
-    real_transform = Transform.fromComponents(45, xy = (0, 1000) )
+    real_transform = Transform.fromComponents(44, xy = (0, 1010) )
     fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
 
     current = Transform.Identity()
@@ -344,9 +326,11 @@ def simple_test():
 def load():
     # pg = PoseGraph.load("t.json")
     # pg = PoseGraph.load("output_looop_real.json")
-    # pg = PoseGraph.load("output_messy_perf.json")
+    pg = PoseGraph.load("output_messy_perf.json")
     # pg = PoseGraph.load("output_first_perf.json")
-    pg = PoseGraph.load("output_sim.json")
+    # pg = PoseGraph.load("output_sim.json")
+    # pg = PoseGraph.load("output_simple_working.json")
+    # pg = PoseGraph.load("output.json")
 
     # for i in range(pg.graph.number_of_nodes()):
     #     if i not in [0,1, 2, 3]:
@@ -369,29 +353,29 @@ def nodes_to_edges(pg):
 
 
 def main():
-    pg, mm_per_pix, plot_pc = simple_test()
-    # pg, mm_per_pix, plot_pc = load()
+    # pg, mm_per_pix, plot_pc = simple_test()
+    pg, mm_per_pix, plot_pc = load()
     print(pg)
 
     viz = Vizualizer(mm_per_pix=mm_per_pix)
 
     # viz.update()
 
-    # solve_pg_paper(pg)
+    solve_pg_paper(pg)
 
     pg.plot(viz, plot_pc=plot_pc)
 
     # for _ in range(10):
     def opt():
-        # solve_pg_positions(pg)
-        solve_pg_rotations(pg)
+        solve_pg_positions(pg)
+        solve_pg_rotations(pg, also_positions=False)
         print(pg)
         # viz.clear()
         pg.plot(viz, plot_pc=plot_pc)
         viz.after(100, opt)
 
 
-    # viz.after(100, opt)
+    # viz.after(5000, opt)
 
     viz.mainloop()
 
