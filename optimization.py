@@ -395,7 +395,7 @@ def load():
     # pg = PoseGraph.load("output_sim.json")
     # pg = PoseGraph.load("output_simple_working.json")
     # pg = PoseGraph.load("output_couch_1.json")
-    pg = PoseGraph.load("output.json")
+    # pg = PoseGraph.load("output.json")
 
     # for i in range(pg.graph.number_of_nodes()):
     #     if i not in [0,1, 2, 3]:
