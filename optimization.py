@@ -30,8 +30,8 @@ def graph_loss(pg):
         real_ti = pg.graph.nodes[i]['pose'].matrix[:2,2]
         real_tj = pg.graph.nodes[j]['pose'].matrix[:2,2]
 
-        # part_cost = np.linalg.norm(  R_i.T @ (real_tj - real_ti) - t_ij )**2
-        part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
+        part_cost = np.linalg.norm(  R_i.T @ (real_tj - real_ti) - t_ij )**2
+        # part_cost = np.linalg.norm(  - R_j @ R_i.T @ real_ti + real_tj - t_ij )**2
 
         part_cost += np.linalg.norm(  R_i.T @ R_j - R_ij, "fro")**2
 
@@ -174,7 +174,6 @@ def solve_pg_positions(pg, hold_steady=0):
     Ts = cp.Variable( ( n, 2 ) )
 
     cost = 0
-    real_cost = 0
     for (i,j), transform in pg.get_edges():
 
         relative = pg.graph.edges[i,j]['transform'].matrix
@@ -188,10 +187,10 @@ def solve_pg_positions(pg, hold_steady=0):
         real_ti = pg.graph.nodes[i]['pose'].matrix[:2,2]
         real_tj = pg.graph.nodes[j]['pose'].matrix[:2,2]
         
-        # cost += cp.sum_squares(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij ) # from paper and logic
-        cost += cp.sum_squares(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
+        cost += cp.sum_squares(  R_i.T @ ( Ts[j,:] - Ts[i,:]) - t_ij ) # from paper and logic
+        # cost += cp.sum_squares(    - R_j @ R_i.T @ Ts[i,:] + Ts[j,:] - t_ij  )
 
-    constraints = [ Ts[hold_steady, 0] == np.array([0,0]) ]
+    constraints = [ Ts[hold_steady, :] == np.array([0,0]) ]
     # constraints = []
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
@@ -273,27 +272,27 @@ def simple_test():
     # pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
     # pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
 
-    # pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
-    # pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
-    # pg.new_node( pose = Transform.fromComponents(190, xy = ( -1100, 1100) ) )
-    # pg.new_node( pose = Transform.fromComponents(285, xy = ( -1200,    0) ) )
+    pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
+    pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
+    pg.new_node( pose = Transform.fromComponents(190, xy = ( -1100, 1100) ) )
+    pg.new_node( pose = Transform.fromComponents(285, xy = ( -1200,    0) ) )
 
-    # pg.add_edge(0, 1, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    # pg.add_edge(1, 2, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    # pg.add_edge(2, 3, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    # pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    pg.add_edge(0, 1, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    pg.add_edge(1, 2, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    pg.add_edge(2, 3, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
 
 
-    real_transform = Transform.fromComponents(44, xy = (0, 1010) )
-    fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
+    # real_transform = Transform.fromComponents(44, xy = (0, 1010) )
+    # fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
 
-    current = Transform.Identity()
-    for i in range(8):
-        pg.new_node( pose = current.copy() )
-        current = fake_transform.combine( current )
+    # current = Transform.Identity()
+    # for i in range(8):
+    #     pg.new_node( pose = current.copy() )
+    #     current = fake_transform.combine( current )
 
-    for i in range(8):
-        pg.add_edge(i, (i+1)%8, transform = real_transform.copy() )
+    # for i in range(8):
+    #     pg.add_edge(i, (i+1)%8, transform = real_transform.copy() )
 
     return pg, 15, False
 
@@ -325,10 +324,9 @@ def nodes_to_edges(pg):
         assert np.allclose( pg.graph.edges[x,y]['transform'].matrix, t2.combine( t1.inv() ).matrix)
 
 
-
 def main():
-    # pg, mm_per_pix, plot_pc = simple_test()
-    pg, mm_per_pix, plot_pc = load()
+    pg, mm_per_pix, plot_pc = simple_test()
+    # pg, mm_per_pix, plot_pc = load()
     print(pg)
 
     viz = Vizualizer(mm_per_pix=mm_per_pix)
@@ -341,16 +339,16 @@ def main():
 
 
     def opt():
-        # loss.append(graph_loss(pg))
-        # solve_pg_positions(pg)
         loss.append(graph_loss(pg))
-        solve_pg_rotations(pg, also_positions=True)
+        solve_pg_positions(pg)
 
+        loss.append(graph_loss(pg))
+        solve_pg_rotations(pg, also_positions=False)
 
         pg.plot(viz, plot_pc=plot_pc)
         viz.after(100, opt)
 
-    viz.after(5000, opt)
+    viz.after(2000, opt)
 
 
     def quit():
