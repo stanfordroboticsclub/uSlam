@@ -317,30 +317,29 @@ def simple_test():
     # pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
     # pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
 
-    pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
-    pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
-    pg.new_node( pose = Transform.fromComponents(190, xy = ( -1100, 1100) ) )
-    pg.new_node( pose = Transform.fromComponents(285, xy = ( -1200,    0) ) )
+    # pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
+    # pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
+    # pg.new_node( pose = Transform.fromComponents(190, xy = ( -1100, 1100) ) )
+    # pg.new_node( pose = Transform.fromComponents(285, xy = ( -1200,    0) ) )
+
+    # pg.add_edge(0, 1, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    # pg.add_edge(1, 2, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    # pg.add_edge(2, 3, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    # pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
 
 
-    pg.add_edge(0, 1, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    pg.add_edge(1, 2, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    pg.add_edge(2, 3, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    real_transform = Transform.fromComponents(45, xy = (0, 1000) )
+    fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
 
+    current = Transform.Identity()
+    for i in range(8):
+        pg.new_node( pose = current.copy() )
+        current = fake_transform.combine( current )
+
+    for i in range(8):
+        pg.add_edge(i, (i+1)%8, transform = real_transform.copy() )
 
     return pg, 15, False
-    solve_pg_paper(pg)
-    # solve_pg_positions(pg)
-
-
-    # pg = PoseGraph.load("test.json")
-    pg.save("test.json")
-    print(nx.find_cycle(pg.graph, 0 , orientation="ignore"))
-
-    viz = Vizualizer(mm_per_pix= 2 )
-    pg.plot(viz, plot_pc=False)
-    viz.mainloop()
 
 def load():
     # pg = PoseGraph.load("t.json")
@@ -370,9 +369,8 @@ def nodes_to_edges(pg):
 
 
 def main():
-    # pg, mm_per_pix, plot_pc = simple_test()
-    # copy_test()
-    pg, mm_per_pix, plot_pc = load()
+    pg, mm_per_pix, plot_pc = simple_test()
+    # pg, mm_per_pix, plot_pc = load()
     print(pg)
 
     viz = Vizualizer(mm_per_pix=mm_per_pix)
