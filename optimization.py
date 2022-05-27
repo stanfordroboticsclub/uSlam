@@ -8,6 +8,7 @@ from pose_graph import PoseGraph
 from output import Vizualizer
 
 from time import sleep
+import copy
 
 import matplotlib.pyplot as plt
 
@@ -91,7 +92,7 @@ def project_constraints(A, hold_steady=None):
 
     while 1:
         eig_v, eig_w = np.linalg.eigh(A)
-        eig_v[ eig_v < 0 ] = 0
+        eig_v[ eig_v < 0 ] = 1e-5
 
         new_A = eig_w  * eig_v @  eig_w.T
 
@@ -100,11 +101,17 @@ def project_constraints(A, hold_steady=None):
 
         new_A[2*n + hold_steady, 2*n + hold_steady] == 0
 
+        return new_A
+
         # print(np.linalg.norm( new_A - A, "fro"))
         if np.linalg.norm( new_A - A, "fro") < 1e-2:
             return new_A
 
+
         A = new_A
+
+        eig_v, eig_w = np.linalg.eigh(A)
+        print( min(eig_v) )
 
 def solve_pg_proj(pg, hold_steady=0):
 
@@ -113,7 +120,6 @@ def solve_pg_proj(pg, hold_steady=0):
     scale_down = 100
     n = graph.number_of_nodes()
 
-    # X = np.eye(3*n)
 
     Z = np.zeros((2, 3*n))
     for i, pose, pc in pg.get_nodes():
@@ -121,6 +127,7 @@ def solve_pg_proj(pg, hold_steady=0):
         Z[:, 2*n + i] = pose.matrix[:2,2] / scale_down
     
     X = Z.T @ Z
+    # X = np.eye(3*n)
 
     grad = np.zeros_like(X)
 
@@ -153,7 +160,7 @@ def solve_pg_proj(pg, hold_steady=0):
             grad[2*i:2*i+2, 2*j:2*j+2] += 2 * ( X_RR(i,j) - R_ij )  / np.sqrt(2)
 
         # loss.append(cost)
-        # X -= 0.001 * grad
+        # X -= 0.01 * grad
         X -= 0.5 * 1/(k+1) * grad
 
         X = project_constraints(X, hold_steady=hold_steady)
@@ -343,16 +350,16 @@ np.set_printoptions(linewidth=500)
 def simple_test():
     pg = PoseGraph()
 
-    # pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
-    # pg.new_node( pose = Transform.fromComponents(0, xy = ( 1000, 0) ) )
-    # pg.new_node( pose = Transform.fromComponents(-45, xy = ( 1000, 1000) ) )
-    # pg.new_node( pose = Transform.fromComponents(143, xy = ( 0, 1000) ) )
+    pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
+    pg.new_node( pose = Transform.fromComponents(0, xy = ( 1000, 0) ) )
+    pg.new_node( pose = Transform.fromComponents(-45, xy = ( 1000, 1000) ) )
+    pg.new_node( pose = Transform.fromComponents(143, xy = ( 0, 1000) ) )
 
 
-    # pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (1000,0) ))
-    # pg.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (0, 1000) ))
-    # pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
-    # pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
+    pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (1000,0) ))
+    pg.add_edge(1, 2, transform = Transform.fromComponents(0, xy = (0, 1000) ))
+    pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
+    pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
 
     # pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
     # pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
@@ -365,26 +372,27 @@ def simple_test():
     # pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
 
 
-    real_transform = Transform.fromComponents(44, xy = (0, 1010) )
-    fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
+    # real_transform = Transform.fromComponents(44, xy = (0, 1010) )
+    # fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
 
-    current = Transform.Identity()
-    for i in range(8):
-        pg.new_node( pose = current.copy() )
-        current = fake_transform.combine( current )
+    # current = Transform.Identity()
+    # for i in range(8):
+    #     pg.new_node( pose = current.copy() )
+    #     current = fake_transform.combine( current )
 
-    for i in range(8):
-        pg.add_edge(i, (i+1)%8, transform = real_transform.copy() )
+    # for i in range(8):
+    #     pg.add_edge(i, (i+1)%8, transform = real_transform.copy() )
 
     return pg, 15, False
 
 def load():
     # pg = PoseGraph.load("t.json")
     # pg = PoseGraph.load("output_looop_real.json")
-    # pg = PoseGraph.load("output_messy_perf.json")
+    pg = PoseGraph.load("output_messy_perf.json")
     # pg = PoseGraph.load("output_first_perf.json")
     # pg = PoseGraph.load("output_sim.json")
-    pg = PoseGraph.load("output_simple_working.json")
+    # pg = PoseGraph.load("output_simple_working.json")
+    # pg = PoseGraph.load("output_couch_1.json")
     # pg = PoseGraph.load("output.json")
 
     # for i in range(pg.graph.number_of_nodes()):
@@ -423,22 +431,39 @@ def main():
     viz.update()
     sleep(2)
     # # loss = solve_pg_paper(pg)
-    loss = solve_pg_proj(pg)
+    # loss = solve_pg_proj(pg)
 
     pg.plot(viz, plot_pc=plot_pc)
 
 
+    best_loss = float("inf")
+    best_graph = None
+    k = 0
     def opt():
-        loss.append(graph_loss(pg))
-        solve_pg_positions(pg)
+        # loss.append(graph_loss(pg))
+        # solve_pg_positions(pg)
+        nonlocal k, best_loss, best_graph
 
-        loss.append(graph_loss(pg))
-        solve_pg_rotations(pg, also_positions=False)
+        k +=1 
+        print(k)
+        it_loss = graph_loss(pg)
 
-        pg.plot(viz, plot_pc=plot_pc)
-        viz.after(100, opt)
+        if it_loss < best_loss:
+            best_loss = it_loss
+            best_graph = copy.deepcopy(pg.graph)
 
-    # viz.after(2000, opt)
+        loss.append(it_loss)
+        solve_pg_rotations(pg, also_positions=True)
+
+        if k > 30:
+            print("best itteratoin", best_graph)
+            pg.graph = best_graph
+            pg.plot(viz, plot_pc=plot_pc)
+        else:
+            pg.plot(viz, plot_pc=plot_pc)
+            viz.after(100, opt)
+
+    viz.after(2000, opt)
 
 
     def quit():

@@ -163,7 +163,7 @@ class SLAM:
                 cloud, transform, number_matched = frame.fitICP(pc)
                 new_points = pc.points.shape[0] - number_matched
                 new_points = 0
-                new_keyframe_distace = 600 # 300
+                new_keyframe_distace = 300 # 300
                 print("new points", new_points)
 
                 if cloud is None:
@@ -193,15 +193,15 @@ class SLAM:
                     edge_transform = frame.pose.combine( cloud.pose.inv() )
                     self.graph.add_edge(added_id, node, transform=edge_transform)
 
-            with self.graph_lock:
-                try:
-                    nx.find_cycle(self.graph,added_id, orientation="ignore")
-                except nx.NetworkXNoCycle:
-                    print("no cycle")
-                    pass
-                else:
-                    print("optimizing cycle")
-                    solve_pg_rotations(self.pg, also_positions=True, hold_steady=added_id)
+                # with self.graph_lock:
+                    # try:
+                    #     nx.find_cycle(self.graph,added_id, orientation="ignore")
+                    # except nx.NetworkXNoCycle:
+                    #     print("no cycle")
+                    #     pass
+                    # else:
+                    #     print("optimizing cycle")
+                    #     solve_pg_rotations(self.pg, also_positions=True, hold_steady=added_id)
 
             with self.odom_transfrom_lock:
                 self.robot.drive(self.odom_transform)
