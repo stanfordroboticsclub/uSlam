@@ -46,9 +46,9 @@ def get_rot_matirx(A):
 def recover_transforms(A, hold_steady=None):
     n = A.shape[0]//3
 
-    print(A)
-    print("pos", A[ :2*n , 2*n:])
-    print(n)
+    # print(A)
+    # print("pos", A[ :2*n , 2*n:])
+    # print(n)
 
     u, s, vt = np.linalg.svd(A, full_matrices=False)
 
@@ -60,7 +60,7 @@ def recover_transforms(A, hold_steady=None):
     rank = 2
     Z = vt[:rank,:] * np.sqrt(s[:rank, None])
 
-    print("X = Z.T @ Z", (A - Z.T @ Z) )
+    # print("X = Z.T @ Z", (A - Z.T @ Z) )
 
     Rots = []
     for i in range(n):
@@ -73,8 +73,6 @@ def recover_transforms(A, hold_steady=None):
     else:
         global_rot = Rots[hold_steady].T
 
-    # print(np.hstack(Rots).shape)
-    # print(A[ :2*n , 2*n:].shape)
     ts = 1/n * np.hstack(Rots) @ A[ :2*n , 2*n:]
 
     transforms = []
@@ -132,9 +130,11 @@ def solve_pg_proj(pg, hold_steady=0):
     def X_Rt(i,j):
         return X[2*i : 2*i+2 , 2*n + j]
 
+    loss = []
     for k in range(1000):
         print(k)
 
+        cost = 0
         for edge, data in graph.edges.items():
             i, j = edge
             angle, t_ij = data['transform'].get_components()
@@ -145,28 +145,28 @@ def solve_pg_proj(pg, hold_steady=0):
 
             t_ij = t_ij / scale_down
 
-            # cost += cp.sum_squares( X_Rt(i,j) - X_Rt(i,i) - t_ij)
-            # cost += cp.sum_squares( X_RR(i,j) - R_ij) / np.sqrt(2)
-
-            # print(X_Rt(i,j).shape)
-            # print(X_Rt(i,i).shape)
-            # print(t_ij.shape)
+            cost += np.linalg.norm( X_Rt(i,j) - X_Rt(i,i) - t_ij)**2
+            cost += np.linalg.norm( X_RR(i,j) - R_ij) / np.sqrt(2)**2
 
             grad[2*i : 2*i+2 , 2*n + j] += 2 * ( X_Rt(i,j) - X_Rt(i,i) - t_ij)
-
             grad[2*i : 2*i+2 , 2*n + i] += - 2 * ( X_Rt(i,j) - X_Rt(i,i) - t_ij)
-
             grad[2*i:2*i+2, 2*j:2*j+2] += 2 * ( X_RR(i,j) - R_ij )  / np.sqrt(2)
 
-        X -= 0.1 * grad
+        # loss.append(cost)
+        # X -= 0.001 * grad
+        X -= 0.5 * 1/(k+1) * grad
 
         X = project_constraints(X, hold_steady=hold_steady)
 
-    transforms = recover_transforms(X, hold_steady=hold_steady)
+        transforms = recover_transforms(X, hold_steady=hold_steady)
 
-    for i,pose in enumerate(transforms):
-        graph.nodes[i]['pose'] = Transform(pose)
-        graph.nodes[i]['pose'].matrix[:2, 2] *= scale_down
+        for i,pose in enumerate(transforms):
+            graph.nodes[i]['pose'] = Transform(pose)
+            graph.nodes[i]['pose'].matrix[:2, 2] *= scale_down
+
+        loss.append(graph_loss(pg))
+
+    return loss
 
 
 def solve_pg_paper(pg, hold_steady=0):
@@ -354,27 +354,27 @@ def simple_test():
     # pg.add_edge(2, 3, transform = Transform.fromComponents(0, xy = ( -1000, 0) ))
     # pg.add_edge(3, 0, transform = Transform.fromComponents(0, xy = (0, -1000) ))
 
-    pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
-    pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
-    pg.new_node( pose = Transform.fromComponents(190, xy = ( -1100, 1100) ) )
-    pg.new_node( pose = Transform.fromComponents(285, xy = ( -1200,    0) ) )
+    # pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
+    # pg.new_node( pose = Transform.fromComponents(95, xy = ( 0, 1100) ) )
+    # pg.new_node( pose = Transform.fromComponents(190, xy = ( -1100, 1100) ) )
+    # pg.new_node( pose = Transform.fromComponents(285, xy = ( -1200,    0) ) )
 
-    pg.add_edge(0, 1, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    pg.add_edge(1, 2, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    pg.add_edge(2, 3, transform = Transform.fromComponents(90, xy = (0, 1000) ))
-    pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    # pg.add_edge(0, 1, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    # pg.add_edge(1, 2, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    # pg.add_edge(2, 3, transform = Transform.fromComponents(90, xy = (0, 1000) ))
+    # pg.add_edge(3, 0, transform = Transform.fromComponents(90, xy = (0, 1000) ))
 
 
-    # real_transform = Transform.fromComponents(44, xy = (0, 1010) )
-    # fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
+    real_transform = Transform.fromComponents(44, xy = (0, 1010) )
+    fake_transform = Transform.fromComponents(35, xy = (0, 1100) )
 
-    # current = Transform.Identity()
-    # for i in range(8):
-    #     pg.new_node( pose = current.copy() )
-    #     current = fake_transform.combine( current )
+    current = Transform.Identity()
+    for i in range(8):
+        pg.new_node( pose = current.copy() )
+        current = fake_transform.combine( current )
 
-    # for i in range(8):
-    #     pg.add_edge(i, (i+1)%8, transform = real_transform.copy() )
+    for i in range(8):
+        pg.add_edge(i, (i+1)%8, transform = real_transform.copy() )
 
     return pg, 15, False
 
@@ -411,12 +411,19 @@ def main():
     # pg, mm_per_pix, plot_pc = load()
     print(pg)
 
+    # print(nx.find_cycle(pg.graph,0, orientation="ignore"))
+    # exit()
+
+
     viz = Vizualizer(mm_per_pix=mm_per_pix)
 
-
+    pg.plot(viz, plot_pc=plot_pc)
     loss = []
-    # loss = solve_pg_paper(pg)
-    solve_pg_proj(pg)
+
+    viz.update()
+    sleep(2)
+    # # loss = solve_pg_paper(pg)
+    loss = solve_pg_proj(pg)
 
     pg.plot(viz, plot_pc=plot_pc)
 

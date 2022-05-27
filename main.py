@@ -9,6 +9,8 @@ from utils import Transform, Robot, PointCloud
 from output import Vizualizer
 from pose_graph import PoseGraph
 
+from optimization import solve_pg_rotations
+
 
 class SLAM:
     def __init__(self):
@@ -27,6 +29,8 @@ class SLAM:
         self.graph = nx.DiGraph()
         self.graph_lock = threading.Lock()
 
+        self.pg = PoseGraph(self.graph)
+
         self.running = True
         self.threads = []
         self.threads.append( threading.Thread( target = self.update_odom, daemon = True) )
@@ -39,8 +43,8 @@ class SLAM:
         self.viz.mainloop()
 
     def quit(self):
-        pg = PoseGraph(self.graph)
-        pg.save("output.json")
+        # pg = PoseGraph(self.graph)
+        self.pg.save("output.json")
         print("quitting")
         self.viz.destroy()
 
@@ -50,21 +54,23 @@ class SLAM:
             # self.viz.plot_Robot(self.robot, c="blue", tag="main")
 
             with self.graph_lock:
-                for node,data in self.graph.nodes.items():
-                    r = Robot()
-                    r.transform = data['pose'].copy()
-                    pc = data['pc'].copy()
-                    if(node not in self.viz.tags.keys()):
-                        self.viz.plot_PointCloud(pc, tag=str(pc)+str(node))
-                        self.viz.plot_Robot(r, tag=node, c="green")
+                self.pg.plot(self.viz, plot_pc=True)
 
-                for edge, data in self.graph.edges.items():
-                    t = str(edge[0])+"_"+str(edge[1])
-                    if t not in self.viz.tags:
-                        print("plooting edge", edge[0], edge[1])
-                        p1 = self.graph.nodes[edge[0]]['pose'].get_components()[1]
-                        p2 = self.graph.nodes[edge[1]]['pose'].get_components()[1]
-                        self.viz.plot_line(p1, p2, tag=t)
+                # for node,data in self.graph.nodes.items():
+                #     r = Robot()
+                #     r.transform = data['pose'].copy()
+                #     pc = data['pc'].copy()
+                #     if(node not in self.viz.tags.keys()):
+                #         self.viz.plot_PointCloud(pc, tag=str(pc)+str(node))
+                #         self.viz.plot_Robot(r, tag=node, c="green")
+
+                # for edge, data in self.graph.edges.items():
+                #     t = str(edge[0])+"_"+str(edge[1])
+                #     if t not in self.viz.tags:
+                #         print("plooting edge", edge[0], edge[1])
+                #         p1 = self.graph.nodes[edge[0]]['pose'].get_components()[1]
+                #         p2 = self.graph.nodes[edge[1]]['pose'].get_components()[1]
+                #         self.viz.plot_line(p1, p2, tag=t)
 
             self.running = all([thread.is_alive() for thread in self.threads])
             if not self.running:
@@ -162,7 +168,7 @@ class SLAM:
 
                 if cloud is None:
                     print("match failed") #TODO
-                    self.viz.plot_PointCloud(cloud, c="red", tag="failed")
+                    self.viz.plot_PointCloud(frame.move(transform), c="red", tag="failed")
                     continue
 
                 if first:
@@ -187,6 +193,15 @@ class SLAM:
                     edge_transform = frame.pose.combine( cloud.pose.inv() )
                     self.graph.add_edge(added_id, node, transform=edge_transform)
 
+            with self.graph_lock:
+                try:
+                    nx.find_cycle(self.graph,added_id, orientation="ignore")
+                except nx.NetworkXNoCycle:
+                    print("no cycle")
+                    pass
+                else:
+                    print("optimizing cycle")
+                    solve_pg_rotations(self.pg, also_positions=True, hold_steady=added_id)
 
             with self.odom_transfrom_lock:
                 self.robot.drive(self.odom_transform)
