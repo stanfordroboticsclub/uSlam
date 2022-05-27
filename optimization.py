@@ -99,7 +99,7 @@ def project_constraints(A, hold_steady=None):
         for i in range(n):
             new_A[2*i:2*i+2, 2*i:2*i+2] == np.eye(2)
 
-        new_A[2*n + hold_steady, 2*n + hold_steady] == 0
+        # new_A[2*n + hold_steady, 2*n + hold_steady] == 0
 
         return new_A
 
@@ -138,7 +138,7 @@ def solve_pg_proj(pg, hold_steady=0):
         return X[2*i : 2*i+2 , 2*n + j]
 
     loss = []
-    for k in range(1000):
+    for k in range(1_000):
         print(k)
 
         cost = 0
@@ -159,19 +159,19 @@ def solve_pg_proj(pg, hold_steady=0):
             grad[2*i : 2*i+2 , 2*n + i] += - 2 * ( X_Rt(i,j) - X_Rt(i,i) - t_ij)
             grad[2*i:2*i+2, 2*j:2*j+2] += 2 * ( X_RR(i,j) - R_ij )  / np.sqrt(2)
 
-        # loss.append(cost)
+        loss.append(cost)
         # X -= 0.01 * grad
-        X -= 0.5 * 1/(k+1) * grad
+        X -= 0.005 * 1/(k+1) * grad
 
         X = project_constraints(X, hold_steady=hold_steady)
 
-        transforms = recover_transforms(X, hold_steady=hold_steady)
+        # transforms = recover_transforms(X, hold_steady=hold_steady)
 
-        for i,pose in enumerate(transforms):
-            graph.nodes[i]['pose'] = Transform(pose)
-            graph.nodes[i]['pose'].matrix[:2, 2] *= scale_down
+        # for i,pose in enumerate(transforms):
+        #     graph.nodes[i]['pose'] = Transform(pose)
+        #     graph.nodes[i]['pose'].matrix[:2, 2] *= scale_down
 
-        loss.append(graph_loss(pg))
+        # loss.append(graph_loss(pg))
 
     return loss
 
@@ -352,8 +352,8 @@ def simple_test():
 
     pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 0) ) )
     pg.new_node( pose = Transform.fromComponents(0, xy = ( 1000, 0) ) )
-    pg.new_node( pose = Transform.fromComponents(-45, xy = ( 1000, 1000) ) )
-    pg.new_node( pose = Transform.fromComponents(143, xy = ( 0, 1000) ) )
+    pg.new_node( pose = Transform.fromComponents(0, xy = ( 1000, 1000) ) )
+    pg.new_node( pose = Transform.fromComponents(0, xy = ( 0, 1000) ) )
 
 
     pg.add_edge(0, 1, transform = Transform.fromComponents(0, xy = (1000,0) ))
@@ -415,8 +415,8 @@ def nodes_to_edges(pg):
 
 
 def main():
-    pg, mm_per_pix, plot_pc = simple_test()
-    # pg, mm_per_pix, plot_pc = load()
+    # pg, mm_per_pix, plot_pc = simple_test()
+    pg, mm_per_pix, plot_pc = load()
     print(pg)
 
     # print(nx.find_cycle(pg.graph,0, orientation="ignore"))
