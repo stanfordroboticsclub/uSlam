@@ -112,6 +112,28 @@ class PoseGraph:
     def plot(self, viz, plot_pc = False):
         self.poses_to_pc()
 
+        def center_node(node):
+            print("centering node", node)
+
+            node = int(node.strip())
+
+            node_pose = self.graph.nodes[node]['pose']
+            for target in self.graph.successors(node):
+                transform = self.graph.edges[node, target]['transform']
+
+                pose = transform.combine( node_pose ).matrix
+                self.graph.nodes[target]['pose'].matrix = pose
+
+            for source in self.graph.predecessors(node):
+                transform = self.graph.edges[source, node]['transform']
+
+                pose = transform.inv().combine( node_pose ).matrix
+                self.graph.nodes[source]['pose'].matrix = pose
+            self.plot(viz, plot_pc=plot_pc)
+
+        viz.click = center_node
+
+
         colors = ["#348ABD", "#A60628", "#7A68A6", "#467821", "#CF4457", "#188487", "#E24A33" ]
 
         i = 0
@@ -129,12 +151,11 @@ class PoseGraph:
 
             diff = self.graph.nodes[y]['pose'].combine( self.graph.nodes[x]['pose'].inv() ).combine( transform.inv() )
             cost = np.linalg.norm( diff.matrix - np.eye(3), "fro")
-            print('edge_cost', cost)
+            # print('edge_cost', cost)
 
 
 
             hex = int( min(255 * (1 / cost) , 255 ))
-            print(hex)
             # print( int(255 * (np.tanh(cost) + 1)/2 ) )
             # hex = int(255 * (np.tanh(cost) + 1)/2 )
             color = "#FF%02x%02x" %  ( hex, hex )

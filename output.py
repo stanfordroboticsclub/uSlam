@@ -18,6 +18,14 @@ class Vizualizer(tk.Tk):
         self.canvas = tk.Canvas(self,width=self.SIZE,height=self.SIZE)
         self.canvas.pack()
 
+        self.box = tk.Text(self, width=10, height=1)
+        self.box.pack()
+
+        self.click = lambda text: 1
+        self.button = tk.Button(self, text="center", command=lambda: self.click(self.box.get(1.0, "end")))
+        self.button.pack()
+
+
         self.tags = defaultdict(list)
 
     @schedule
@@ -100,7 +108,7 @@ class Vizualizer(tk.Tk):
                                 self.SIZE/2+5 - pos[1]/self.MM_PER_PIX,
                                 self.SIZE/2-5 + pos[0]/self.MM_PER_PIX,
                                 self.SIZE/2-5 - pos[1]/self.MM_PER_PIX,
-                                fill = c)
+                                fill = c, tag=("node", tag))
 
         if tag is not None:
             self.tags[tag].extend([arrow, oval])

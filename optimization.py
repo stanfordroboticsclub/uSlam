@@ -224,15 +224,18 @@ def solve_pg_rotations(pg, hold_steady = 0):
     graph = pg.graph
     n = graph.number_of_nodes()
 
-    for node in range(n):
-        if len(list(nx.all_neighbors(graph, node))) > 1:
-            queue = [node]
+    # for node in range(n):
+    #     if len(list(nx.all_neighbors(graph, node))) > 1:
+    #         queue = [node]
+
+    queue = [np.random.randint(n)]
 
     if queue == []:
         print("emplty")
         return
 
-    for _ in range(10 * n):
+    # for _ in range(10 * n):
+    for _ in range(1):
         print(queue)
         if queue == []:
             break
@@ -244,13 +247,15 @@ def solve_pg_rotations(pg, hold_steady = 0):
         if node == hold_steady:
             continue
         rots = []
+        pos = []
 
         for target in graph.successors(node):
             transform = graph.edges[node, target]['transform']
             target_pose = graph.nodes[target]['pose']
 
-            R = transform.inv().combine( target_pose ).matrix[:2, :2]
-            rots.append(R)
+            pose = transform.inv().combine( target_pose ).matrix
+            rots.append(pose[:2, :2])
+            pos.append(pose[:2, 2] )
 
             queue.append(target)
 
@@ -258,13 +263,16 @@ def solve_pg_rotations(pg, hold_steady = 0):
             transform = graph.edges[source, node]['transform']
             source_pose = graph.nodes[source]['pose']
 
-            R = transform.combine( source_pose ).matrix[:2, :2]
-            rots.append(R)
+            pose = transform.combine( source_pose ).matrix
+            rots.append(pose[:2, :2])
+            pos.append(pose[:2, 2] )
+
             queue.append(source)
 
         if rots == []:
             continue
         graph.nodes[node]['pose'].matrix[:2, :2] = avg_rotations(rots)
+        # graph.nodes[node]['pose'].matrix[:2, 2] = sum(pos)/len(pos)
 
 
 
@@ -339,7 +347,7 @@ def load():
     # pg = PoseGraph.load("output_looop_real.json")
     # pg = PoseGraph.load("output_messy_perf.json")
     # pg = PoseGraph.load("output_first_perf.json")
-    pg = PoseGraph.load("output.json")
+    pg = PoseGraph.load("output_sim.json")
 
     # for i in range(pg.graph.number_of_nodes()):
     #     if i not in [0,1, 2, 3]:
@@ -362,9 +370,9 @@ def nodes_to_edges(pg):
 
 
 def main():
-    pg, mm_per_pix, plot_pc = simple_test()
+    # pg, mm_per_pix, plot_pc = simple_test()
     # copy_test()
-    # pg, mm_per_pix, plot_pc = load()
+    pg, mm_per_pix, plot_pc = load()
     print(pg)
 
     viz = Vizualizer(mm_per_pix=mm_per_pix)
@@ -377,7 +385,7 @@ def main():
 
     # for _ in range(10):
     def opt():
-        solve_pg_positions(pg)
+        # solve_pg_positions(pg)
         solve_pg_rotations(pg)
         print(pg)
         # viz.clear()
@@ -385,7 +393,7 @@ def main():
         viz.after(100, opt)
 
 
-    viz.after(100, opt)
+    # viz.after(100, opt)
 
     viz.mainloop()
 
