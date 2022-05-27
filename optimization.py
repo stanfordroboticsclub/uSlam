@@ -112,10 +112,18 @@ def solve_pg_proj(pg, hold_steady=0):
 
     graph = pg.graph
 
-    scale_down = 1
+    scale_down = 100
     n = graph.number_of_nodes()
 
-    X = np.eye(3*n)
+    # X = np.eye(3*n)
+
+    Z = np.zeros((2, 3*n))
+    for i, pose, pc in pg.get_nodes():
+        Z[:, 2*i:2*i + 2] = pose.matrix[:2,:2]
+        Z[:, 2*n + i] = pose.matrix[:2,2] / scale_down
+    
+    X = Z.T @ Z
+
     grad = np.zeros_like(X)
 
     def X_RR(i,j):
@@ -124,7 +132,7 @@ def solve_pg_proj(pg, hold_steady=0):
     def X_Rt(i,j):
         return X[2*i : 2*i+2 , 2*n + j]
 
-    for k in range(100):
+    for k in range(1000):
         print(k)
 
         for edge, data in graph.edges.items():
@@ -150,7 +158,7 @@ def solve_pg_proj(pg, hold_steady=0):
 
             grad[2*i:2*i+2, 2*j:2*j+2] += 2 * ( X_RR(i,j) - R_ij )  / np.sqrt(2)
 
-        X -= 0.01 * grad
+        X -= 0.1 * grad
 
         X = project_constraints(X, hold_steady=hold_steady)
 
