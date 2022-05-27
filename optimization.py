@@ -87,6 +87,80 @@ def recover_transforms(A, hold_steady=None):
 
     return transforms
 
+
+def project_constraints(A, hold_steady=None):
+    n = A.shape[0]//3
+
+    while 1:
+        eig_v, eig_w = np.linalg.eigh(A)
+        eig_v[ eig_v < 0 ] = 0
+
+        new_A = eig_w  * eig_v @  eig_w.T
+
+        for i in range(n):
+            new_A[2*i:2*i+2, 2*i:2*i+2] == np.eye(2)
+
+        new_A[2*n + hold_steady, 2*n + hold_steady] == 0
+
+        # print(np.linalg.norm( new_A - A, "fro"))
+        if np.linalg.norm( new_A - A, "fro") < 1e-2:
+            return new_A
+
+        A = new_A
+
+def solve_pg_proj(pg, hold_steady=0):
+
+    graph = pg.graph
+
+    scale_down = 1
+    n = graph.number_of_nodes()
+
+    X = np.eye(3*n)
+    grad = np.zeros_like(X)
+
+    def X_RR(i,j):
+        return X[2*i:2*i+2, 2*j:2*j+2]
+
+    def X_Rt(i,j):
+        return X[2*i : 2*i+2 , 2*n + j]
+
+    for k in range(100):
+        print(k)
+
+        for edge, data in graph.edges.items():
+            i, j = edge
+            angle, t_ij = data['transform'].get_components()
+            print(f"edge {i} -> {j}, angle={np.degrees(angle)}, t={t_ij}")
+
+            R_ij = data['transform'].matrix[:2, :2]
+            t_ij = data['transform'].matrix[:2, 2]
+
+            t_ij = t_ij / scale_down
+
+            # cost += cp.sum_squares( X_Rt(i,j) - X_Rt(i,i) - t_ij)
+            # cost += cp.sum_squares( X_RR(i,j) - R_ij) / np.sqrt(2)
+
+            # print(X_Rt(i,j).shape)
+            # print(X_Rt(i,i).shape)
+            # print(t_ij.shape)
+
+            grad[2*i : 2*i+2 , 2*n + j] += 2 * ( X_Rt(i,j) - X_Rt(i,i) - t_ij)
+
+            grad[2*i : 2*i+2 , 2*n + i] += - 2 * ( X_Rt(i,j) - X_Rt(i,i) - t_ij)
+
+            grad[2*i:2*i+2, 2*j:2*j+2] += 2 * ( X_RR(i,j) - R_ij )  / np.sqrt(2)
+
+        X -= 0.01 * grad
+
+        X = project_constraints(X, hold_steady=hold_steady)
+
+    transforms = recover_transforms(X, hold_steady=hold_steady)
+
+    for i,pose in enumerate(transforms):
+        graph.nodes[i]['pose'] = Transform(pose)
+        graph.nodes[i]['pose'].matrix[:2, 2] *= scale_down
+
+
 def solve_pg_paper(pg, hold_steady=0):
 
     graph = pg.graph
@@ -119,8 +193,8 @@ def solve_pg_paper(pg, hold_steady=0):
         # R_ij[0,0] = np.cos(angle); R_ij[0,1] =-np.sin(angle)
         # R_ij[1,0] = np.sin(angle); R_ij[1,1] = np.cos(angle)
 
-        cost += 10  * cp.sum_squares( X_Rt(i,j) - X_Rt(i,i) - t_ij)
-        cost += 10  * cp.sum_squares( X_RR(i,j) - R_ij) / np.sqrt(2)
+        cost +=  cp.sum_squares( X_Rt(i,j) - X_Rt(i,i) - t_ij)
+        cost +=  cp.sum_squares( X_RR(i,j) - R_ij) / np.sqrt(2)
         # cost += 10  * cp.norm( X_RR(i,j) - R_ij, "fro") / np.sqrt(2)
 
     # cost += 0.0001*cp.norm(X, "fro")
@@ -143,8 +217,8 @@ def solve_pg_paper(pg, hold_steady=0):
         graph.nodes[i]['pose'] = Transform(pose)
         graph.nodes[i]['pose'].matrix[:2, 2] *= scale_down
 
-        if graph.nodes[i]["pc"] != None:
-            graph.nodes[i]['pc'].pose = Transform(pose)
+        # if graph.nodes[i]["pc"] != None:
+        #     graph.nodes[i]['pc'].pose = Transform(pose)
 
 
 def log_matrix(M):
@@ -334,6 +408,7 @@ def main():
 
     loss = []
     # loss = solve_pg_paper(pg)
+    solve_pg_proj(pg)
 
     pg.plot(viz, plot_pc=plot_pc)
 
@@ -348,7 +423,7 @@ def main():
         pg.plot(viz, plot_pc=plot_pc)
         viz.after(100, opt)
 
-    viz.after(2000, opt)
+    # viz.after(2000, opt)
 
 
     def quit():
