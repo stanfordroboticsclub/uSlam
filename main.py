@@ -30,6 +30,7 @@ class SLAM:
         self.graph_lock = threading.Lock()
 
         self.pg = PoseGraph(self.graph)
+        self.opt = False
 
         self.running = True
         self.threads = []
@@ -102,6 +103,8 @@ class SLAM:
 
             sleep = max(0, dt - (time.time() - start) )
             time.sleep(sleep)
+            # if self.opt:
+            #     return
                 
 
     def local_keyframes(self):
@@ -116,6 +119,12 @@ class SLAM:
                 out.append( (distance, node,) )
 
         return sorted(out)
+
+    # def opt_graph(self):
+        # with self.graph_lock:
+        #     print("optimizing cycle 2 ")
+        #     solve_pg_rotations(self.pg, also_positions=True, hold_steady=self.nearest)
+        # self.viz.after(500, self.opt_graph)
 
 
     def update_lidar(self):
@@ -155,6 +164,8 @@ class SLAM:
 
             keyframes = self.local_keyframes()
 
+            opt = False
+
             first = True
             added_id = None
             for dist, node in keyframes:
@@ -168,10 +179,11 @@ class SLAM:
 
                 if cloud is None:
                     print("match failed") #TODO
-                    self.viz.plot_PointCloud(frame.move(transform), c="red", tag="failed")
+                    # self.viz.plot_PointCloud(frame.move(transform), c="red", tag="failed")
                     continue
 
                 if first:
+                    self.nearest = node
                     print("robot pos updated")
                     self.robot.move(transform)
                     first = False
@@ -187,21 +199,38 @@ class SLAM:
                 with self.graph_lock:
                     if added_id is None:
                         added_id = self.graph.number_of_nodes()
+                        self.closest = added_id
                         self.graph.add_node(added_id, pc = cloud.copy(), pose=cloud.pose.copy()) #, raw_pc = raw_pc, pose = self.robot.get_transform().copy())
 
                     # edge_transfrom = self.robot.get_transform().copy().combine(self.graph.nodes[node]['pose'].inv())
                     edge_transform = frame.pose.combine( cloud.pose.inv() )
                     self.graph.add_edge(added_id, node, transform=edge_transform)
 
-                # with self.graph_lock:
+                    if np.abs(node - added_id) > 5:
+                        print("optimizing cycle")
+                        self.opt = True
+            if self.opt:
+                for k in range(5):
+                    with self.graph_lock:
+                        print("optimizing cycle", k)
+                        solve_pg_rotations(self.pg, also_positions=True, hold_steady=0)
+                    time.sleep(0.2)
+                        
+                        # self.viz.after(500, self.opt_graph)
+
+                
+
                     # try:
-                    #     nx.find_cycle(self.graph,added_id, orientation="ignore")
+                    #     cycles = nx.find_cycle(self.graph,added_id, orientation="ignore")
                     # except nx.NetworkXNoCycle:
                     #     print("no cycle")
                     #     pass
                     # else:
-                    #     print("optimizing cycle")
-                    #     solve_pg_rotations(self.pg, also_positions=True, hold_steady=added_id)
+                    #     print("cycle found")
+                    #     print(cycles)
+                    #     if max( len(c) for c in cycles) > 4:
+                    #         print("optimizing cycle")
+                    #         solve_pg_rotations(self.pg, also_positions=True, hold_steady=added_id)
 
             with self.odom_transfrom_lock:
                 self.robot.drive(self.odom_transform)

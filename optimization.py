@@ -298,6 +298,7 @@ def solve_pg_rotations(pg, hold_steady = 0, also_positions = False):
         if len(list(nx.all_neighbors(graph, node))) > 1:
             queue = [node]
 
+
     # queue = [np.random.randint(n)]
 
     if queue == []:
@@ -305,6 +306,7 @@ def solve_pg_rotations(pg, hold_steady = 0, also_positions = False):
         return
 
     for _ in range(10 * n):
+    # for _ in range(1):
         if queue == []:
             break
 
@@ -393,7 +395,7 @@ def load():
     # pg = PoseGraph.load("output_sim.json")
     # pg = PoseGraph.load("output_simple_working.json")
     # pg = PoseGraph.load("output_couch_1.json")
-    # pg = PoseGraph.load("output.json")
+    pg = PoseGraph.load("output.json")
 
     # for i in range(pg.graph.number_of_nodes()):
     #     if i not in [0,1, 2, 3]:
@@ -456,6 +458,7 @@ def main():
         solve_pg_rotations(pg, also_positions=True)
 
         if k > 30:
+        # if k > 300:
             print("best itteratoin", best_graph)
             pg.graph = best_graph
             pg.plot(viz, plot_pc=plot_pc)
@@ -470,6 +473,9 @@ def main():
         viz.destroy()
         plt.figure()
         plt.plot(loss)
+        plt.xlabel("Iteration")
+        plt.ylabel("Loss")
+        plt.title("Optimization Loss")
         plt.show()
 
     viz.protocol("WM_DELETE_WINDOW", quit)
