@@ -389,12 +389,12 @@ def simple_test():
 
 def load():
     # pg = PoseGraph.load("t.json")
-    # pg = PoseGraph.load("output_looop_real.json")
-    pg = PoseGraph.load("output_messy_perf.json")
-    # pg = PoseGraph.load("output_first_perf.json")
-    # pg = PoseGraph.load("output_sim.json")
-    # pg = PoseGraph.load("output_simple_working.json")
-    # pg = PoseGraph.load("output_couch_1.json")
+    # pg = PoseGraph.load("output_looop_real.json") # loss goes up ?!
+    pg = PoseGraph.load("output_messy_perf.json") # works super well
+    # pg = PoseGraph.load("output_first_perf.json") # works well but good starting point
+    # pg = PoseGraph.load("output_sim.json") # simplest example that goes up
+    # pg = PoseGraph.load("output_simple_working.json") # goes down and then up
+    # pg = PoseGraph.load("output_couch_1.json") # goes down and then up
     # pg = PoseGraph.load("output.json")
 
     # for i in range(pg.graph.number_of_nodes()):
@@ -432,7 +432,7 @@ def main():
 
     viz.update()
     sleep(2)
-    # # loss = solve_pg_paper(pg)
+    # loss = solve_pg_paper(pg)
     # loss = solve_pg_proj(pg)
 
     pg.plot(viz, plot_pc=plot_pc)
@@ -466,7 +466,7 @@ def main():
             pg.plot(viz, plot_pc=plot_pc)
             viz.after(100, opt)
 
-    viz.after(2000, opt)
+    viz.after(2000, opt) # uncomment for aletarating method
 
 
     def quit():
