@@ -1,0 +1,16 @@
+
+
+
+- cvxpy not converging - needed to rescale but still doesn't work
+   - try mosek
+   - scs, super scs is an improvment
+
+- proximal methods - not full projection
+
+
+
+- ADMM consenstus constraint - one for x >= 0 and one of I \in x
+
+- rewaeighted nuclear norm to encourage low rank
+
+
