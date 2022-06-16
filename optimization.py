@@ -222,7 +222,8 @@ def solve_pg_paper(pg, hold_steady=0):
 
     prob = cp.Problem(cp.Minimize(cost), constraints )
 
-    prob.solve(solver=cp.CVXOPT, verbose=True)
+    prob.solve(solver=cp.MOSEK, verbose=True)
+    # prob.solve(solver=cp.CVXOPT, verbose=True)
     # prob.solve(verbose=True)
     # prob.solve(alpha= 1.2, acceleration_lookback=0, use_indirect=False, scale=5, normalize=True)
 
